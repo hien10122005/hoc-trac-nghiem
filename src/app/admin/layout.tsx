@@ -16,6 +16,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import { Toaster } from "react-hot-toast";
 
 export default function AdminLayout({
   children,
@@ -30,7 +31,7 @@ export default function AdminLayout({
     { name: "Tổng quan", icon: LayoutDashboard, href: "/admin" },
     { name: "Quản lý môn học", icon: BookOpen, href: "/admin/subjects" },
     { name: "Ngân hàng câu hỏi", icon: Database, href: "/admin/questions" },
-    { name: "Tài khoản học viên", icon: Users, href: "/admin/students" },
+    { name: "Tài khoản học viên", icon: Users, href: "/admin/users" },
   ];
 
   const getIcon = (item: any) => {
@@ -56,6 +57,7 @@ export default function AdminLayout({
 
   return (
     <div className="flex min-h-screen bg-[#0a0a14] text-slate-200 selection:bg-[#6c5ce7]/30">
+      <Toaster position="top-right" toastOptions={{ style: { background: '#10101f', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' } }} />
       {/* Sidebar */}
       <aside 
         className={`${

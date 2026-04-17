@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Plus, 
   Search, 
@@ -13,7 +13,10 @@ import {
   ChevronDown,
   Info,
   HelpCircle,
-  AlertCircle
+  AlertCircle,
+  FileSpreadsheet,
+  Upload,
+  Download
 } from "lucide-react";
 import { 
   collection, 
@@ -24,9 +27,13 @@ import {
   orderBy, 
   deleteDoc, 
   doc,
-  serverTimestamp 
+  serverTimestamp,
+  writeBatch
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import * as XLSX from "xlsx";
+import toast from "react-hot-toast";
+
 
 // Interface cho Môn học (để load dropdown)
 interface Subject {
@@ -52,12 +59,86 @@ export default function QuestionsPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [content, setContent] = useState("");
   const [options, setOptions] = useState(["", "", "", ""]);
   const [correctAnswer, setCorrectAnswer] = useState(0);
   const [explanation, setExplanation] = useState("");
+
+  // Handle Download File Mẫu
+  const handleDownloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([
+      { CauHoi: "Thủ đô của Việt Nam là gì?", DapAnA: "Hồ Chí Minh", DapAnB: "Hà Nội", DapAnC: "Đà Nẵng", DapAnD: "Huế", ViTriDapAnDung: 1, GiaiThich: "Hà Nội là thủ đô của Việt Nam." }
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "template.xlsx");
+    toast.success("Đã tải xuống file mẫu!");
+  };
+
+  // Handle Upload Excel
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!selectedSubjectId) {
+      toast.error("Vui lòng chọn môn học trước khi upload!");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setIsUploading(true);
+    const toastId = toast.loading("Đang đọc dữ liệu file Excel...");
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData: any[] = XLSX.utils.sheet_to_json(firstSheet);
+
+      if (!jsonData || jsonData.length === 0) {
+        throw new Error("File trống hoặc định dạng không hợp lệ!");
+      }
+
+      const batch = writeBatch(db);
+      let addedCount = 0;
+
+      jsonData.forEach((row) => {
+        if (!row.CauHoi || row.DapAnA === undefined || row.DapAnB === undefined || row.DapAnC === undefined || row.DapAnD === undefined || row.ViTriDapAnDung === undefined) {
+          return; // Skip missing data row
+        }
+
+        const newDocRef = doc(collection(db, "questions"));
+        batch.set(newDocRef, {
+          subjectId: selectedSubjectId,
+          content: String(row.CauHoi),
+          options: [String(row.DapAnA), String(row.DapAnB), String(row.DapAnC), String(row.DapAnD)],
+          correctAnswer: Number(row.ViTriDapAnDung),
+          explanation: row.GiaiThich ? String(row.GiaiThich) : "",
+          createdAt: serverTimestamp(),
+        });
+        addedCount++;
+      });
+
+      if (addedCount === 0) {
+        throw new Error("Không có câu hỏi hợp lệ nào được tìm thấy. Vui lòng kiểm tra lại cấu trúc file!");
+      }
+
+      toast.loading(`Đang lưu ${addedCount} câu hỏi lên hệ thống...`, { id: toastId });
+      await batch.commit();
+
+      toast.success(`Đã thêm thành công ${addedCount} câu hỏi!`, { id: toastId });
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Lỗi khi upload dữ liệu!", { id: toastId });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   // Fetch subjects for dropdown
   useEffect(() => {
@@ -104,15 +185,16 @@ export default function QuestionsPage() {
   const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSubjectId || !content.trim()) {
-      alert("Vui lòng chọn môn học và nhập nội dung câu hỏi.");
+      toast.error("Vui lòng chọn môn học và nhập nội dung câu hỏi.");
       return;
     }
     if (options.some(opt => !opt.trim())) {
-      alert("Vui lòng nhập đầy đủ 4 đáp án.");
+      toast.error("Vui lòng nhập đầy đủ 4 đáp án.");
       return;
     }
 
     setIsSubmitting(true);
+    const toastId = toast.loading("Đang lưu câu hỏi...");
     try {
       await addDoc(collection(db, "questions"), {
         subjectId: selectedSubjectId,
@@ -129,22 +211,24 @@ export default function QuestionsPage() {
       setCorrectAnswer(0);
       setExplanation("");
       setIsModalOpen(false);
+      toast.success("Thêm câu hỏi thành công!", { id: toastId });
     } catch (error) {
       console.error("Error adding question:", error);
-      alert("Đã có lỗi xảy ra khi lưu câu hỏi.");
+      toast.error("Đã có lỗi xảy ra khi lưu câu hỏi.", { id: toastId });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle Delete Question
   const handleDeleteQuestion = async (id: string) => {
     if (confirm("Bạn có chắc chắn muốn xóa câu hỏi này?")) {
       try {
-        await deleteDoc(doc(db, "questions", id));
-      } catch (error) {
-        console.error("Error deleting question:", error);
-      }
+          await deleteDoc(doc(db, "questions", id));
+          toast.success("Đã xóa câu hỏi.");
+        } catch (error) {
+          console.error("Error deleting question:", error);
+          toast.error("Lỗi khi xóa câu hỏi.");
+        }
     }
   };
 
@@ -165,21 +249,47 @@ export default function QuestionsPage() {
           <p className="text-slate-400 mt-1">Xây dựng bộ đề trắc nghiệm thông minh cho từng môn học.</p>
         </div>
         
-        <button 
-          onClick={() => {
-            if (!selectedSubjectId) {
-              alert("Vui lòng chọn môn học trước khi thêm câu hỏi.");
-              return;
-            }
-            setIsModalOpen(true);
-          }}
-          className="group flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#6c5ce7] to-[#5b4bc4] px-5 py-3 text-sm font-bold text-white transition-all hover:scale-105 active:scale-95 shadow-lg shadow-[#6c5ce7]/30"
-        >
-          <div className="bg-white/20 rounded-lg p-1 group-hover:bg-white/30 transition-colors">
-            <Plus size={18} />
-          </div>
-          <span>Thêm câu hỏi mới</span>
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button 
+            onClick={handleDownloadTemplate}
+            className="group flex items-center justify-center gap-2 rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 transition-all hover:bg-white/10 hover:text-white"
+          >
+            <Download size={16} />
+            <span className="hidden md:inline">Tải file mẫu</span>
+          </button>
+
+          <input 
+            type="file" 
+            accept=".xlsx, .xls"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="group flex items-center justify-center gap-2 rounded-xl bg-[#00cec9]/10 border border-[#00cec9]/30 px-4 py-3 text-sm font-semibold text-[#00cec9] transition-all hover:bg-[#00cec9]/20 disabled:opacity-50"
+          >
+            {isUploading ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+            <span className="hidden md:inline">{isUploading ? "Đang tải lên..." : "Upload Excel"}</span>
+          </button>
+
+          <button 
+            onClick={() => {
+              if (!selectedSubjectId) {
+                toast.error("Vui lòng chọn môn học trước khi thêm câu hỏi.");
+                return;
+              }
+              setIsModalOpen(true);
+            }}
+            className="group flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#6c5ce7] to-[#5b4bc4] px-5 py-3 text-sm font-bold text-white transition-all hover:scale-105 active:scale-95 shadow-lg shadow-[#6c5ce7]/30"
+          >
+            <div className="bg-white/20 rounded-lg p-1 group-hover:bg-white/30 transition-colors">
+              <Plus size={18} />
+            </div>
+            <span>Thêm câu hỏi mới</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Toolbar */}
