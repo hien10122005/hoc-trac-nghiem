@@ -1,5 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { 
+  collection, 
+  query, 
+  orderBy, 
+  limit, 
+  onSnapshot, 
+  getCountFromServer,
+  where,
+  Timestamp
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { 
   BookOpen, 
   Database, 
@@ -8,40 +20,138 @@ import {
   Plus,
   ArrowUpRight,
   TrendingUp,
-  FileText
+  FileText,
+  UserPlus
 } from "lucide-react";
 
+interface RecentActivity {
+  id: string;
+  type: "quiz" | "user";
+  user: string;
+  target?: string;
+  createdAt: Timestamp;
+}
+
 export default function AdminDashboard() {
-  const stats = [
+  const [stats, setStats] = useState({
+    subjects: 0,
+    questions: 0,
+    students: 0,
+    results: 0
+  });
+  const [activities, setActivities] = useState<RecentActivity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const [subCount, qCount, userCount, resCount] = await Promise.all([
+          getCountFromServer(collection(db, "subjects")),
+          getCountFromServer(collection(db, "questions")),
+          getCountFromServer(query(collection(db, "users"), where("role", "==", "student"))),
+          getCountFromServer(collection(db, "results"))
+        ]);
+
+        setStats({
+          subjects: subCount.data().count,
+          questions: qCount.data().count,
+          students: userCount.data().count,
+          results: resCount.data().count
+        });
+      } catch (error) {
+        console.error("Error fetching counts:", error);
+      }
+    }
+
+    fetchCounts();
+
+    // Fetch Recent Activities (Real-time)
+    const qResults = query(collection(db, "results"), orderBy("createdAt", "desc"), limit(5));
+    const qUsers = query(collection(db, "users"), where("role", "==", "student"), orderBy("createdAt", "desc"), limit(5));
+
+    let quizActivities: RecentActivity[] = [];
+    let userActivities: RecentActivity[] = [];
+
+    const unsubResults = onSnapshot(qResults, (snapshot) => {
+      quizActivities = snapshot.docs.map(doc => ({
+        id: doc.id,
+        type: "quiz" as const,
+        user: doc.data().userEmail?.split('@')[0] || "Học viên",
+        target: doc.data().subjectName,
+        createdAt: doc.data().createdAt
+      }));
+      updateMergedActivities();
+    });
+
+    const unsubUsers = onSnapshot(qUsers, (snapshot) => {
+      userActivities = snapshot.docs.map(doc => ({
+        id: doc.id,
+        type: "user" as const,
+        user: doc.data().name || doc.data().email?.split('@')[0] || "Học viên mới",
+        createdAt: doc.data().createdAt
+      }));
+      updateMergedActivities();
+    });
+
+    const updateMergedActivities = () => {
+      setActivities(() => {
+        const merged = [...quizActivities, ...userActivities]
+          .filter(a => a.createdAt) // Ensure timestamp exists
+          .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
+          .slice(0, 5);
+        return merged;
+      });
+      setIsLoading(false);
+    };
+
+    return () => {
+      unsubResults();
+      unsubUsers();
+    };
+  }, []);
+
+  const statCards = [
     { 
       label: "Tổng môn học", 
-      value: "12", 
+      value: stats.subjects, 
       icon: BookOpen, 
       color: "from-blue-500 to-cyan-400",
-      trend: "+2 tháng này" 
+      trend: "Hoạt động" 
     },
     { 
       label: "Ngân hàng câu hỏi", 
-      value: "1,250", 
+      value: stats.questions.toLocaleString(), 
       icon: Database, 
       color: "from-purple-500 to-pink-500",
-      trend: "+120 tuần này" 
+      trend: "Đang lưu trữ" 
     },
     { 
       label: "Tổng học viên", 
-      value: "450", 
+      value: stats.students, 
       icon: Users, 
       color: "from-emerald-500 to-teal-400",
-      trend: "+45 thành viên mới" 
+      trend: "Thành viên" 
     },
     { 
-      label: "Lượt thi hôm nay", 
-      value: "86", 
+      label: "Tổng lượt thi", 
+      value: stats.results.toLocaleString(), 
       icon: Activity, 
       color: "from-orange-500 to-yellow-400",
-      trend: "+15% so với hôm qua" 
+      trend: "Lượt làm bài" 
     },
   ];
+
+  const formatRelativeTime = (timestamp: Timestamp) => {
+    if (!timestamp) return "...";
+    const now = new Date();
+    const date = timestamp.toDate();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return "Vừa xong";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} phút trước`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} giờ trước`;
+    return date.toLocaleDateString('vi-VN');
+  };
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
@@ -67,7 +177,7 @@ export default function AdminDashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, i) => (
+        {statCards.map((stat, i) => (
           <div 
             key={stat.label}
             className="group relative overflow-hidden rounded-2xl bg-[#10101f] p-6 border border-white/5 hover:border-[#6c5ce7]/30 transition-all duration-500 shadow-xl"
@@ -76,25 +186,32 @@ export default function AdminDashboard() {
               animationDelay: `${i * 100}ms` 
             }}
           >
-            <div className="flex items-start justify-between">
-              <div className={`rounded-xl bg-gradient-to-br ${stat.color} p-3 shadow-lg shadow-black/20 group-hover:scale-110 transition-transform duration-500`}>
-                <stat.icon size={22} className="text-white" />
+            {isLoading ? (
+              <div className="space-y-4 animate-pulse">
+                <div className="h-10 w-10 bg-white/5 rounded-xl" />
+                <div className="h-8 w-24 bg-white/5 rounded-lg" />
               </div>
-              <div className="flex items-center gap-1 text-[10px] font-bold text-[#00cec9] bg-[#00cec9]/10 px-2 py-1 rounded-full uppercase tracking-wider">
-                <TrendingUp size={10} />
-                <span>Live</span>
-              </div>
-            </div>
-            
-            <div className="mt-6">
-              <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-              <h3 className="mt-1 text-3xl font-bold text-white">{stat.value}</h3>
-              <p className="mt-2 text-xs text-slate-400">
-                <span className="text-[#00cec9]">{stat.trend}</span>
-              </p>
-            </div>
-            
-            {/* Background decoration */}
+            ) : (
+              <>
+                <div className="flex items-start justify-between">
+                  <div className={`rounded-xl bg-gradient-to-br ${stat.color} p-3 shadow-lg shadow-black/20 group-hover:scale-110 transition-transform duration-500`}>
+                    <stat.icon size={22} className="text-white" />
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-[#00cec9] bg-[#00cec9]/10 px-2 py-1 rounded-full uppercase tracking-wider">
+                    <TrendingUp size={10} />
+                    <span>Live</span>
+                  </div>
+                </div>
+                
+                <div className="mt-6">
+                  <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                  <h3 className="mt-1 text-3xl font-bold text-white">{stat.value}</h3>
+                  <p className="mt-2 text-xs text-slate-400">
+                    <span className="text-[#00cec9]">{stat.trend}</span>
+                  </p>
+                </div>
+              </>
+            )}
             <div className={`absolute -right-4 -bottom-4 h-24 w-24 rounded-full bg-gradient-to-br ${stat.color} opacity-[0.03] blur-2xl group-hover:opacity-10 transition-opacity`} />
           </div>
         ))}
@@ -112,29 +229,48 @@ export default function AdminDashboard() {
           </div>
           <div className="p-6">
             <div className="space-y-6">
-              {[
-                { user: "Nguyễn Văn A", action: "vừa hoàn thành bài thi", target: "Toán cao cấp A1", time: "2 phút trước" },
-                { user: "Trần Thị B", action: "đã thêm câu hỏi mới vào", target: "Tiếng Anh chuyên ngành", time: "15 phút trước" },
-                { user: "Lê Văn C", action: "vừa đăng ký tài khoản mới", target: "", time: "1 giờ trước" },
-                { user: "Phạm Minh D", action: "đã cập nhật tài liệu cho", target: "Vật lý đại cương", time: "3 giờ trước" },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between group cursor-default">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold text-slate-400 group-hover:border-[#6c5ce7]/50 transition-colors">
-                      {item.user.split(" ").pop()?.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">
-                        {item.user} <span className="text-slate-500 font-normal">{item.action}</span> {item.target && <span className="text-[#6c5ce7]">{item.target}</span>}
-                      </p>
-                      <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wide">{item.time}</p>
-                    </div>
+              {isLoading ? (
+                [1, 2, 3, 4].map(i => (
+                  <div key={i} className="flex items-center gap-4 animate-pulse">
+                     <div className="h-10 w-10 rounded-full bg-white/5" />
+                     <div className="space-y-2 flex-1">
+                        <div className="h-4 bg-white/5 rounded-md w-3/4" />
+                        <div className="h-3 bg-white/5 rounded-md w-full" />
+                     </div>
                   </div>
-                  <button className="opacity-0 group-hover:opacity-100 p-2 hover:bg-white/5 rounded-lg transition-all">
-                    <ArrowUpRight size={14} className="text-slate-500" />
-                  </button>
-                </div>
-              ))}
+                ))
+              ) : activities.length > 0 ? (
+                activities.map((item, idx) => (
+                  <div key={item.id} className="flex items-center justify-between group cursor-default">
+                    <div className="flex items-center gap-4">
+                      <div className={`h-10 w-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold transition-colors ${
+                        item.type === "user" ? "text-emerald-400 border-emerald-500/30" : "text-slate-400 group-hover:border-[#6c5ce7]/50"
+                      }`}>
+                        {item.type === "user" ? <UserPlus size={16} /> : item.user.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-white">
+                          <span className="capitalize">{item.user}</span> 
+                          {item.type === "quiz" ? (
+                            <>
+                              <span className="text-slate-500 font-normal"> vừa hoàn thành bài thi </span> 
+                              <span className="text-[#6c5ce7]">{item.target}</span>
+                            </>
+                          ) : (
+                            <span className="text-emerald-400 font-normal"> vừa gia nhập hệ thống</span>
+                          )}
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wide">{formatRelativeTime(item.createdAt)}</p>
+                      </div>
+                    </div>
+                    <button className="opacity-0 group-hover:opacity-100 p-2 hover:bg-white/5 rounded-lg transition-all">
+                      <ArrowUpRight size={14} className="text-slate-500" />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-slate-500 py-4 italic">Chưa có hoạt động nào được ghi nhận.</p>
+              )}
             </div>
           </div>
         </div>
@@ -151,7 +287,6 @@ export default function AdminDashboard() {
                 Khám phá ngay
               </button>
             </div>
-            {/* Background decoration */}
             <Activity className="absolute -right-8 -bottom-8 h-40 w-40 text-black/5 rotate-12 group-hover:scale-110 transition-transform duration-500" />
           </div>
 
@@ -189,3 +324,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
