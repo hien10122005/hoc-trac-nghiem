@@ -76,21 +76,21 @@ export default function DashboardPage() {
       const subjectsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as Subject[];
+      })) as unknown as Subject[];
       setSubjects(subjectsData);
     });
 
     // Fetch User Results for Statistics/Streak
     const qRes = query(
       collection(db, "results"), 
-      where("userId", "==", user.uid),
+      where("userId", "==", (user as { uid: string }).uid),
       orderBy("createdAt", "desc")
     );
     const unsubRes = onSnapshot(qRes, (snapshot) => {
       const resultsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as Result[];
+      })) as unknown as Result[];
       setResults(resultsData);
       setDataLoading(false);
     });
