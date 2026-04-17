@@ -5,6 +5,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Mail, Lock, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 
 export default function LoginPage() {
@@ -189,9 +190,17 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-8 text-center text-xs text-[var(--text-muted)]" style={{ animation: "fadeInUp 0.6s ease-out 0.8s both" }}>
-            © 2026 &mdash; Ứng dụng Học Trắc Nghiệm
-          </p>
+          <div className="mt-6 text-center space-y-4" style={{ animation: "fadeInUp 0.6s ease-out 0.8s both" }}>
+            <p className="text-sm text-[var(--text-muted)]">
+              Chưa có tài khoản?{" "}
+              <Link href="/register" className="font-bold text-[var(--accent)] hover:underline hover:text-white transition-colors">
+                Đăng ký ngay
+              </Link>
+            </p>
+            <p className="text-xs text-[var(--text-muted)]/60">
+              © 2026 &mdash; Ứng dụng Học Trắc Nghiệm
+            </p>
+          </div>
         </div>
       </div>
     </main>
