@@ -21,7 +21,6 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Trophy, 
-  RefreshCcw, 
   Home, 
   Eye, 
   Loader2,
@@ -53,7 +52,7 @@ export default function QuizPage() {
   const params = useParams();
   const subjectId = params.subjectId as string;
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<unknown>(null);
   const [subjectName, setSubjectName] = useState("");
   const [loading, setLoading] = useState(true);
   
@@ -139,27 +138,7 @@ export default function QuizPage() {
     loadQuiz();
   }, [subjectId]);
 
-  // Timer logic
-  useEffect(() => {
-    if (state.questions.length > 0 && !state.isFinished && state.timeLeft > 0) {
-      timerRef.current = setInterval(() => {
-        setState(prev => {
-          if (prev.timeLeft <= 1) {
-            if (timerRef.current) clearInterval(timerRef.current);
-            handleFinishQuiz(prev);
-            return { ...prev, timeLeft: 0 };
-          }
-          return { ...prev, timeLeft: prev.timeLeft - 1 };
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [state.questions.length, state.isFinished]);
-
-  const handleFinishQuiz = async (currentState?: QuizState) => {
+  const handleFinishQuiz = useCallback(async (currentState?: QuizState) => {
     const s = currentState || state;
     if (s.isFinished) return;
 
@@ -197,7 +176,27 @@ export default function QuizPage() {
       correctCount: correct,
       score: score
     }));
-  };
+  }, [state, subjectId, subjectName, user]);
+
+  // Timer logic
+  useEffect(() => {
+    if (state.questions.length > 0 && !state.isFinished && state.timeLeft > 0) {
+      timerRef.current = setInterval(() => {
+        setState(prev => {
+          if (prev.timeLeft <= 1) {
+            if (timerRef.current) clearInterval(timerRef.current);
+            handleFinishQuiz(prev);
+            return { ...prev, timeLeft: 0 };
+          }
+          return { ...prev, timeLeft: prev.timeLeft - 1 };
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [state.questions.length, state.isFinished, state.timeLeft, handleFinishQuiz]);
 
   const handleSelectOption = (optIdx: number) => {
     if (state.isFinished) return;

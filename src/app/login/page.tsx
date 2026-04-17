@@ -41,11 +41,12 @@ export default function LoginPage() {
       } else {
         alert("Tài khoản chưa được phân quyền");
       }
-    } catch (err: any) {
-      console.error(err);
-      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+    } catch (err: unknown) {
+      const e = err as { code?: string };
+      console.error(e);
+      if (e.code === "auth/user-not-found" || e.code === "auth/wrong-password" || e.code === "auth/invalid-credential") {
         setError("Email hoặc mật khẩu không chính xác.");
-      } else if (err.code === "auth/invalid-email") {
+      } else if (e.code === "auth/invalid-email") {
         setError("Email không hợp lệ.");
       } else {
         setError("Đã có lỗi xảy ra. Vui lòng thử lại sau.");

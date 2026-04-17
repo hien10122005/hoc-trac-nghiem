@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, query, orderBy, deleteDoc, doc } from "firebase/firestore";
+import { collection, onSnapshot, query, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Users, Trash2, Shield, User, Search, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -11,7 +11,7 @@ interface UserProfile {
   name: string;
   email: string;
   role: string;
-  createdAt: any;
+  createdAt: unknown;
 }
 
 export default function UsersPage() {

@@ -49,7 +49,7 @@ interface Question {
   options: string[];
   correctAnswer: number;
   explanation: string;
-  createdAt: any;
+  createdAt: unknown;
 }
 
 export default function QuestionsPage() {
@@ -97,7 +97,7 @@ export default function QuestionsPage() {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData: any[] = XLSX.utils.sheet_to_json(firstSheet);
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet) as unknown[];
 
       if (!jsonData || jsonData.length === 0) {
         throw new Error("File trống hoặc định dạng không hợp lệ!");
@@ -131,9 +131,10 @@ export default function QuestionsPage() {
       await batch.commit();
 
       toast.success(`Đã thêm thành công ${addedCount} câu hỏi!`, { id: toastId });
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "Lỗi khi upload dữ liệu!", { id: toastId });
+    } catch (error: unknown) {
+      const e = error as Error;
+      console.error(e);
+      toast.error(e.message || "Lỗi khi upload dữ liệu!", { id: toastId });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -157,11 +158,14 @@ export default function QuestionsPage() {
   // Fetch questions for selected subject
   useEffect(() => {
     if (!selectedSubjectId) {
-      setQuestions([]);
+      if (questions.length > 0) {
+        const t = setTimeout(() => setQuestions([]), 0);
+        return () => clearTimeout(t);
+      }
       return;
     }
 
-    setLoading(true);
+    const t = setTimeout(() => setLoading(true), 0);
     // Lưu ý: Tạm thời bỏ orderBy("createdAt") để tránh lỗi 'The query requires an index'. 
     // Khi bạn đã tạo Index trên Firebase Console, có thể thêm lại dòng này.
     const q = query(
@@ -175,7 +179,8 @@ export default function QuestionsPage() {
         ...doc.data()
       })) as Question[];
       setQuestions(questionsData);
-      setLoading(false);
+      const t = setTimeout(() => setLoading(false), 0);
+      return () => clearTimeout(t);
     });
 
     return () => unsubscribe();
@@ -410,7 +415,7 @@ export default function QuestionsPage() {
         <div className="flex flex-col items-center justify-center h-80 rounded-2xl border-2 border-dashed border-white/5 bg-[#10101f]/50">
           <AlertCircle size={32} className="text-slate-600 mb-4" />
           <h3 className="text-lg font-medium text-white">Môn học này chưa có câu hỏi</h3>
-          <p className="text-slate-500 mt-1 text-sm">Bấm "Thêm câu hỏi mới" để bắt đầu xây dựng ngân hàng đề thi.</p>
+          <p className="text-slate-500 mt-1 text-sm">Bấm &quot;Thêm câu hỏi mới&quot; để bắt đầu xây dựng ngân hàng đề thi.</p>
         </div>
       )}
 

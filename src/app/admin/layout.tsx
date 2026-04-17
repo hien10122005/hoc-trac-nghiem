@@ -8,7 +8,6 @@ import {
   Users, 
   LogOut, 
   Menu, 
-  X,
   Bell,
   Search
 } from "lucide-react";
@@ -34,7 +33,7 @@ export default function AdminLayout({
     { name: "Tài khoản học viên", icon: Users, href: "/admin/users" },
   ];
 
-  const getIcon = (item: any) => {
+  const getIcon = (item: { name: string }) => {
     switch (item.name) {
       case "Tổng quan": return <LayoutDashboard size={22} />;
       case "Quản lý môn học": return <BookOpen size={22} />;

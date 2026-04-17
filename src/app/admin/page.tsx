@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { 
   collection, 
   query, 
@@ -9,9 +10,12 @@ import {
   onSnapshot, 
   getCountFromServer,
   where,
-  Timestamp
+  Timestamp,
+  doc,
+  getDoc
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { db, auth } from "@/lib/firebase";
 import { 
   BookOpen, 
   Database, 
@@ -21,8 +25,23 @@ import {
   ArrowUpRight,
   TrendingUp,
   FileText,
-  UserPlus
+  UserPlus,
+  ShieldAlert
 } from "lucide-react";
+
+// Định nghĩa Interface để tránh lỗi TypeScript/Lint trên GitHub
+interface FirestoreResultData {
+  userEmail?: string;
+  subjectName?: string;
+  createdAt: Timestamp;
+}
+
+interface FirestoreUserData {
+  name?: string;
+  email?: string;
+  role?: string;
+  createdAt: Timestamp;
+}
 
 interface RecentActivity {
   id: string;
@@ -33,6 +52,7 @@ interface RecentActivity {
 }
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [stats, setStats] = useState({
     subjects: 0,
     questions: 0,
@@ -41,8 +61,39 @@ export default function AdminDashboard() {
   });
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      // Kiểm tra quyền Admin thực tế từ Firestore
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const userData = userDoc.data() as FirestoreUserData | undefined;
+        
+        if (userData?.role === "admin") {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error("Error verifying admin role:", error);
+        setIsAdmin(false);
+        setIsLoading(false);
+      }
+    });
+
+    return () => unsubAuth();
+  }, [router]);
+
+  useEffect(() => {
+    if (isAdmin !== true) return;
+
     async function fetchCounts() {
       try {
         const [subCount, qCount, userCount, resCount] = await Promise.all([
@@ -72,31 +123,10 @@ export default function AdminDashboard() {
     let quizActivities: RecentActivity[] = [];
     let userActivities: RecentActivity[] = [];
 
-    const unsubResults = onSnapshot(qResults, (snapshot) => {
-      quizActivities = snapshot.docs.map(doc => ({
-        id: doc.id,
-        type: "quiz" as const,
-        user: doc.data().userEmail?.split('@')[0] || "Học viên",
-        target: doc.data().subjectName,
-        createdAt: doc.data().createdAt
-      }));
-      updateMergedActivities();
-    });
-
-    const unsubUsers = onSnapshot(qUsers, (snapshot) => {
-      userActivities = snapshot.docs.map(doc => ({
-        id: doc.id,
-        type: "user" as const,
-        user: doc.data().name || doc.data().email?.split('@')[0] || "Học viên mới",
-        createdAt: doc.data().createdAt
-      }));
-      updateMergedActivities();
-    });
-
     const updateMergedActivities = () => {
       setActivities(() => {
         const merged = [...quizActivities, ...userActivities]
-          .filter(a => a.createdAt) // Ensure timestamp exists
+          .filter(a => a.createdAt)
           .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
           .slice(0, 5);
         return merged;
@@ -104,11 +134,59 @@ export default function AdminDashboard() {
       setIsLoading(false);
     };
 
+    const unsubResults = onSnapshot(qResults, (snapshot) => {
+      quizActivities = snapshot.docs.map(snap => {
+        const data = snap.data() as FirestoreResultData;
+        return {
+          id: snap.id,
+          type: "quiz" as const,
+          user: data.userEmail?.split('@')[0] || "Học viên",
+          target: data.subjectName,
+          createdAt: data.createdAt
+        };
+      });
+      updateMergedActivities();
+    });
+
+    const unsubUsers = onSnapshot(qUsers, (snapshot) => {
+      userActivities = snapshot.docs.map(snap => {
+        const data = snap.data() as FirestoreUserData;
+        return {
+          id: snap.id,
+          type: "user" as const,
+          user: data.name || data.email?.split('@')[0] || "Học viên mới",
+          createdAt: data.createdAt
+        };
+      });
+      updateMergedActivities();
+    });
+
     return () => {
       unsubResults();
       unsubUsers();
     };
-  }, []);
+  }, [isAdmin]);
+
+  // UI cảnh báo nếu không phải Admin
+  if (isAdmin === false) {
+    return (
+      <div className="flex h-[60vh] flex-col items-center justify-center space-y-4 text-center">
+        <div className="h-16 w-16 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500">
+          <ShieldAlert size={32} />
+        </div>
+        <h2 className="text-2xl font-bold text-white">Truy cập bị từ chối</h2>
+        <p className="text-slate-400 max-w-sm">
+          Tài khoản của bạn không có quyền quản trị. Vui lòng liên hệ quản trị viên hệ thống hoặc đăng nhập bằng tài khoản khác.
+        </p>
+        <button 
+          onClick={() => router.push("/login")}
+          className="rounded-xl bg-white/5 px-6 py-2.5 text-sm font-medium text-white hover:bg-white/10 transition-all"
+        >
+          Quay lại Đăng nhập
+        </button>
+      </div>
+    );
+  }
 
   const statCards = [
     { 

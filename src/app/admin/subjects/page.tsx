@@ -42,7 +42,7 @@ interface Subject {
   description: string;
   icon: string;
   slug: string;
-  createdAt: any;
+  createdAt: unknown;
 }
 
 // Danh sách Icon Lucide hỗ trợ

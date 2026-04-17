@@ -44,13 +44,14 @@ export default function RegisterPage() {
       toast.success("Đăng ký thành công!", { id: toastId });
       router.push("/dashboard");
       
-    } catch (err: any) {
-      console.error(err);
-      if (err.code === "auth/email-already-in-use") {
+    } catch (err: unknown) {
+      const firebaseError = err as { code?: string };
+      console.error(firebaseError);
+      if (firebaseError.code === "auth/email-already-in-use") {
         toast.error("Email này đã được sử dụng.", { id: toastId });
-      } else if (err.code === "auth/weak-password") {
+      } else if (firebaseError.code === "auth/weak-password") {
         toast.error("Mật khẩu quá yếu, cần ít nhất 6 ký tự.", { id: toastId });
-      } else if (err.code === "auth/invalid-email") {
+      } else if (firebaseError.code === "auth/invalid-email") {
         toast.error("Email không hợp lệ.", { id: toastId });
       } else {
         toast.error("Đã có lỗi xảy ra. Vui lòng thử lại sau.", { id: toastId });

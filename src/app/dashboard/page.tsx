@@ -37,11 +37,17 @@ interface Result {
   createdAt: Timestamp;
 }
 
+interface LeaderboardEntry {
+  userId: string;
+  userEmail: string;
+  totalScore: number;
+}
+
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<unknown>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [results, setResults] = useState<Result[]>([]);
-  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(true);
@@ -195,7 +201,7 @@ export default function DashboardPage() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-8 md:px-10 lg:py-12 space-y-10">
         {/* TOP: Hero Banner */}
-        <HeroBanner userName={user?.email?.split('@')[0]} streak={streakCount} />
+        <HeroBanner userName={(user as { email?: string })?.email?.split('@')[0] || "Học viên"} streak={streakCount} />
 
         {/* MIDDLE: Stats & Continued Learning */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">

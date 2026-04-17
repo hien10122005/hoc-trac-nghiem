@@ -26,9 +26,14 @@ export default function HeroBanner({ userName, streak }: HeroBannerProps) {
   const [quote, setQuote] = useState("");
 
   useEffect(() => {
-    const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
-    setQuote(MOTIVATIONAL_QUOTES[randomIndex]);
-  }, []);
+    if (!quote) {
+      const t = setTimeout(() => {
+        const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
+        setQuote(MOTIVATIONAL_QUOTES[randomIndex]);
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [quote]);
 
   return (
     <motion.div
