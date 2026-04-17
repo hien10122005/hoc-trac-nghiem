@@ -97,7 +97,17 @@ export default function QuestionsPage() {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(firstSheet) as unknown[];
+      interface ExcelRow {
+        CauHoi?: string;
+        DapAnA?: string | number;
+        DapAnB?: string | number;
+        DapAnC?: string | number;
+        DapAnD?: string | number;
+        ViTriDapAnDung?: number | string;
+        GiaiThich?: string;
+      }
+
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet) as ExcelRow[];
 
       if (!jsonData || jsonData.length === 0) {
         throw new Error("File trống hoặc định dạng không hợp lệ!");

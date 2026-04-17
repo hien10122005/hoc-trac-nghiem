@@ -155,9 +155,10 @@ export default function QuizPage() {
     // Save to Firestore
     try {
       if (user) {
+        const u = user as { uid: string; email: string };
         await addDoc(collection(db, "results"), {
-          userId: user.uid,
-          userEmail: user.email,
+          userId: u.uid,
+          userEmail: u.email,
           subjectId,
           subjectName,
           score,

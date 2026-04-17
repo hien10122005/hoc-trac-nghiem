@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, query, deleteDoc, doc } from "firebase/firestore";
+import { collection, onSnapshot, query, deleteDoc, doc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Users, Trash2, Shield, User, Search, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -11,7 +11,7 @@ interface UserProfile {
   name: string;
   email: string;
   role: string;
-  createdAt: unknown;
+  createdAt: Timestamp | null;
 }
 
 export default function UsersPage() {
@@ -31,8 +31,9 @@ export default function UsersPage() {
       
       // Sort manually client side to avoid Firebase index error
       usersData.sort((a, b) => {
-        if (!a.createdAt || !b.createdAt) return 0;
-        return b.createdAt.toMillis() - a.createdAt.toMillis();
+        const timeA = (a.createdAt as Timestamp)?.toMillis?.() || 0;
+        const timeB = (b.createdAt as Timestamp)?.toMillis?.() || 0;
+        return timeB - timeA;
       });
       
       setUsers(usersData);
