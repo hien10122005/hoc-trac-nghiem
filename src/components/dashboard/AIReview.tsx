@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, BrainCircuit, ChevronRight, CheckCircle2, XCircle, RefreshCw, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -34,13 +33,26 @@ interface AIResponse {
 export default function AIReview({ results }: AIReviewProps) {
   const [loading, setLoading] = useState(false);
   const [aiData, setAiData] = useState<AIResponse | null>(null);
+  const [displayedAnalysis, setDisplayedAnalysis] = useState("");
   const [selectedAns, setSelectedAns] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
 
-  // Group and get the most frequent wrong questions (top 5)
+  // Hiệu ứng Typing Animation cho phần phân tích của AI
+  useEffect(() => {
+    if (aiData?.analysis) {
+      let i = 0;
+      const fullText = aiData.analysis;
+      const interval = setInterval(() => {
+        setDisplayedAnalysis(prev => prev + (fullText[i] || ""));
+        i++;
+        if (i >= fullText.length) clearInterval(interval);
+      }, 30);
+      return () => clearInterval(interval);
+    }
+  }, [aiData]);
+
   const getIncorrectData = () => {
     const allIncorrect = results.flatMap(r => r.incorrectQuestions || []);
-    // Take the 5 most recent unique questions
     const unique = Array.from(new Set(allIncorrect.map(q => q.content)))
       .slice(0, 5)
       .map(content => allIncorrect.find(q => q.content === content));
@@ -51,86 +63,89 @@ export default function AIReview({ results }: AIReviewProps) {
   const handleAIAnalyze = async () => {
     const wrongQuestions = getIncorrectData();
     if (wrongQuestions.length === 0) {
-      toast.error("Bạn cần hoàn thành ít nhất 1 bài thi và có câu sai để AI phân tích!");
+      toast.error("Bạn chưa có câu hỏi sai nào để AI phân tích!");
       return;
     }
 
     setLoading(true);
     setAiData(null);
+    setDisplayedAnalysis("");
     setIsAnswered(false);
     setSelectedAns(null);
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      if (!apiKey) throw new Error("API Key chưa được cấu hình!");
+      const response = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wrongQuestions: wrongQuestions.map(q => ({
+          q: q.content,
+          options: q.options,
+          correct: q.options[q.correctAnswer]
+        })) })
+      });
 
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-      const prompt = `
-        Dưới đây là danh sách các câu hỏi trắc nghiệm mà học viên đã làm sai:
-        ${JSON.stringify(wrongQuestions.map(q => ({ q: q.content, options: q.options, correct: q.options[q.correctAnswer] })))}
-
-        Nhiệm vụ của bạn:
-        1. Phân tích ngắn gọn (khoảng 3-4 câu) lý do học viên thường sai ở các kiến thức này.
-        2. Tạo ra 1 câu hỏi trắc nghiệm MỚI tương tự (cùng cấp độ khó) để kiểm tra lại kiến thức.
-        
-        Trả về kết quả dưới dạng JSON CHÍNH XÁC với cấu trúc:
-        {
-          "analysis": "Lời giải thích của bạn...",
-          "newQuestion": {
-            "content": "Nội dung câu hỏi mới...",
-            "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
-            "correctAnswer": 0
-          }
-        }
-        Lưu ý: "correctAnswer" là index của mảng options (0 đến 3).
-      `;
-
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      if (!response.ok) throw new Error("Lỗi mạng hoặc API Server");
       
-      // Clean potential markdown code blocks
-      const jsonStr = text.replace(/```json|```/g, "").trim();
-      const data: AIResponse = JSON.parse(jsonStr);
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      
+      setDisplayedAnalysis(""); // Khởi tạo lại chuỗi hiển thị trước khi bắt đầu typing
       setAiData(data);
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Gia sư AI đang bận, vui lòng thử lại sau!";
       console.error("AI Error:", error);
-      toast.error("Không thể kết nối với AI. Vui lòng thử lại sau!");
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-xl relative overflow-hidden group">
-      {/* Background Glow */}
+    <div className={`relative rounded-3xl border transition-all duration-700 ${
+      loading ? "border-[#6c5ce7] shadow-[0_0_30px_rgba(108,92,231,0.3)] bg-[#6c5ce7]/5" : "border-white/10 bg-white/[0.03]"
+    } p-8 backdrop-blur-xl overflow-hidden group`}>
+      
+      {/* Dynamic Glow Glow Background */}
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-0 pointer-events-none"
+          >
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-gradient-radial from-[#6c5ce7]/20 to-transparent blur-[120px] animate-pulse" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Decorative Blur */}
       <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#6c5ce7]/10 blur-[100px] group-hover:bg-[#6c5ce7]/20 transition-all duration-700" />
       
-      <div className="relative z-10">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[#6c5ce7] to-[#8e44ad] p-0.5 shadow-lg shadow-[#6c5ce7]/20">
-              <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-[#07070a]">
-                <BrainCircuit size={28} className="text-[#a29bfe]" />
+      <div className="relative z-10 px-2 lg:px-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div className="flex items-center gap-5">
+            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#6c5ce7] to-[#8e44ad] p-[1px] shadow-2xl shadow-[#6c5ce7]/20">
+              <div className="flex h-full w-full items-center justify-center rounded-[15px] bg-[#07070a]">
+                <BrainCircuit size={32} className={`transition-colors duration-500 ${loading ? "text-[#00cec9]" : "text-[#a29bfe]"}`} />
               </div>
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                Góc Ôn Tập Thông Minh <Sparkles size={20} className="text-yellow-400" />
-              </h2>
-              <p className="text-sm text-slate-400 mt-1 uppercase tracking-widest font-bold">AI - Powered Knowledge Coach</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-3xl font-extrabold text-white tracking-tight">AI Smart Review</h2>
+                <Sparkles size={20} className="text-yellow-400 animate-bounce" />
+              </div>
+              <p className="text-xs text-slate-400 mt-1.5 uppercase tracking-widest font-black opacity-80 decoration-[#6c5ce7] decoration-2">DNC Virtual Tutor Hub</p>
             </div>
           </div>
 
           <button
             onClick={handleAIAnalyze}
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] text-white font-bold text-sm shadow-xl shadow-[#6c5ce7]/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
+            className="group/btn flex items-center gap-3 px-8 py-3.5 rounded-2xl bg-white text-black font-black text-sm hover:bg-[#6c5ce7] hover:text-white transition-all duration-500 shadow-2xl shadow-black/20 disabled:opacity-50"
           >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-            {aiData ? "Phân tích lại" : "Bắt đầu phân tích"}
+            {loading ? <Loader2 size={20} className="animate-spin" /> : <RefreshCw size={20} className="group-hover/btn:rotate-180 transition-transform duration-500" />}
+            {aiData ? "Phân tích lại" : "Khám phá tiềm năng"}
           </button>
         </div>
 
@@ -140,79 +155,96 @@ export default function AIReview({ results }: AIReviewProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="flex flex-col items-center justify-center py-12 space-y-4"
+              className="flex flex-col items-center justify-center py-16 space-y-6"
             >
-              <div className="relative h-20 w-20">
+              <div className="relative h-24 w-24">
                  <motion.div 
-                   animate={{ rotate: 360 }}
-                   transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                   className="absolute inset-0 rounded-full border-t-2 border-r-2 border-[#6c5ce7] shadow-[0_0_20px_rgba(108,92,231,0.5)]"
+                   animate={{ rotate: 360, scale: [1, 1.1, 1] }}
+                   transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                   className="absolute inset-0 rounded-full border-2 border-[#6c5ce7] border-dashed shadow-[0_0_40px_rgba(108,92,231,0.6)]"
                  />
-                 <div className="absolute inset-4 flex items-center justify-center">
-                    <BrainCircuit className="text-[#6c5ce7] animate-pulse" size={32} />
+                 <div className="absolute inset-5 flex items-center justify-center text-[#6c5ce7]">
+                    <Sparkles className="animate-pulse" size={32} />
                  </div>
               </div>
-              <p className="text-slate-400 font-medium animate-pulse text-lg tracking-wide">
-                AI đang phân tích lỗ hổng kiến thức của bạn...
-              </p>
+              <div className="space-y-2 text-center">
+                <p className="text-white text-xl font-bold tracking-wide animate-pulse">
+                  Gia sư AI đang quét dữ liệu lỗ hổng...
+                </p>
+                <p className="text-slate-500 text-sm font-medium">Bản sắc cá nhân hóa kiến thức Đại học Nam Cần Thơ</p>
+              </div>
             </motion.div>
           ) : aiData ? (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="space-y-8"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-10"
             >
-              {/* Analysis Text */}
-              <div className="relative p-6 rounded-2xl border border-[#6c5ce7]/30 bg-[#6c5ce7]/5 overflow-hidden">
-                <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-[#6c5ce7] to-[#00cec9]" />
-                <h4 className="text-sm font-bold text-[#a29bfe] uppercase tracking-widest mb-3">AI Nhận xét:</h4>
-                <p className="text-slate-200 leading-relaxed italic text-lg">
-                  &ldquo;{aiData.analysis}&rdquo;
+              {/* Persona Style Analysis Text */}
+              <div className="relative p-8 rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-transparent overflow-hidden group/card shadow-2xl">
+                <div className="absolute top-0 left-0 h-1.5 w-full bg-gradient-to-r from-[#6c5ce7] via-[#00cec9] to-[#6c5ce7] bg-[length:200%_100%] animate-shimmer" />
+                <div className="flex items-center gap-3 mb-5">
+                   <div className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                   <h4 className="text-sm font-black text-[#00cec9] uppercase tracking-[0.3em]">Lời thầy nhắn nhủ:</h4>
+                </div>
+                <p className="text-slate-100 leading-relaxed text-xl font-medium min-h-[4rem]">
+                   {displayedAnalysis}
+                   <motion.span 
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ repeat: Infinity, duration: 0.8 }}
+                    className="inline-block w-1.5 h-6 bg-[#6c5ce7] ml-1 align-middle"
+                   />
                 </p>
               </div>
 
-              {/* New Practice Question */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="h-0.5 flex-1 bg-white/5" />
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em]">Thử thách Củng cố Kiến thức</span>
-                  <div className="h-0.5 flex-1 bg-white/5" />
+              {/* Question Section */}
+              <div className="space-y-8 pb-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-white/10" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.5em] whitespace-nowrap">Thử thách Củng cố Kiến thức</span>
+                  <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-white/10" />
                 </div>
 
-                <div className="rounded-2xl bg-white/[0.02] border border-white/5 p-8">
-                  <h3 className="text-xl font-bold text-white mb-8 leading-tight">
+                <div className="rounded-[2.5rem] bg-black/40 border border-white/5 p-10 shadow-inner">
+                  <h3 className="text-2xl font-bold text-white mb-10 leading-snug">
                     {aiData.newQuestion.content}
                   </h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {aiData.newQuestion.options.map((option, idx) => (
                       <button
                         key={idx}
-                        onClick={() => !isAnswered && setSelectedAns(idx)}
-                        className={`group relative flex items-center gap-4 rounded-xl border p-5 text-left transition-all ${
+                        disabled={isAnswered}
+                        onClick={() => setSelectedAns(idx)}
+                        className={`group relative flex items-center gap-5 rounded-2xl border p-6 text-left transition-all duration-300 ${
                           isAnswered
                             ? idx === aiData.newQuestion.correctAnswer
-                              ? "border-[#00cec9] bg-[#00cec9]/10"
+                              ? "border-[#00cec9] bg-[#00cec9]/15 scale-[1.02] shadow-lg shadow-[#00cec9]/10"
                               : idx === selectedAns
-                              ? "border-red-500/50 bg-red-500/10"
-                              : "border-white/5 opacity-50"
+                              ? "border-red-500/50 bg-red-500/10 opacity-70"
+                              : "border-white/5 opacity-40"
                             : selectedAns === idx
-                            ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
-                            : "border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10"
+                            ? "border-[#6c5ce7] bg-[#6c5ce7]/20 shadow-lg shadow-[#6c5ce7]/10"
+                            : "border-white/5 bg-white/[0.03] hover:border-white/20 hover:bg-white/5"
                         }`}
                       >
-                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-sm font-bold transition-colors ${
-                          selectedAns === idx ? "border-[#6c5ce7] bg-[#6c5ce7] text-white" : "border-white/10 text-slate-400 group-hover:text-white"
+                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 text-lg font-black transition-all duration-300 ${
+                          selectedAns === idx ? "border-[#6c5ce7] bg-[#6c5ce7] text-white shadow-lg shadow-[#6c5ce7]/30" : "border-white/10 text-slate-500 group-hover:text-white"
                         }`}>
                           {String.fromCharCode(65 + idx)}
                         </div>
-                        <span className="font-medium text-slate-200">{option}</span>
+                        <span className="font-semibold text-slate-200 text-lg">{option}</span>
                         
                         {isAnswered && idx === aiData.newQuestion.correctAnswer && (
-                          <CheckCircle2 size={24} className="absolute right-4 text-[#00cec9]" />
+                          <div className="absolute right-6 h-8 w-8 rounded-full bg-[#00cec9] flex items-center justify-center text-black">
+                             <CheckCircle2 size={20} />
+                          </div>
                         )}
                         {isAnswered && idx === selectedAns && idx !== aiData.newQuestion.correctAnswer && (
-                          <XCircle size={24} className="absolute right-4 text-red-500" />
+                          <div className="absolute right-6 h-8 w-8 rounded-full bg-red-500 flex items-center justify-center text-white">
+                             <XCircle size={20} />
+                          </div>
                         )}
                       </button>
                     ))}
@@ -220,16 +252,16 @@ export default function AIReview({ results }: AIReviewProps) {
 
                   {!isAnswered && selectedAns !== null && (
                     <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-8 flex justify-end"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="mt-12 flex justify-center lg:justify-end"
                     >
                       <button
                         onClick={() => setIsAnswered(true)}
-                        className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-[#6c5ce7] hover:text-white transition-all shadow-xl"
+                        className="group flex items-center gap-3 px-10 py-5 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] text-white font-black text-sm hover:shadow-[0_0_30px_rgba(108,92,231,0.4)] transition-all transform hover:-translate-y-1"
                       >
-                        Xác nhận đáp án
-                        <ChevronRight size={18} className="translate-x-0 group-hover:translate-x-1 transition-transform" />
+                        KIỂM TRA ĐÁP ÁN
+                        <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
                       </button>
                     </motion.div>
                   )}
@@ -237,18 +269,33 @@ export default function AIReview({ results }: AIReviewProps) {
               </div>
             </motion.div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="h-20 w-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
-                <BrainCircuit size={40} className="text-slate-600" />
+            <div className="flex flex-col items-center justify-center py-20 text-center space-y-8">
+              <div className="relative">
+                <div className="absolute inset-0 bg-[#6c5ce7]/20 blur-[60px] rounded-full" />
+                <div className="relative h-28 w-28 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+                  <BrainCircuit size={48} className="text-slate-600 group-hover:text-[#6c5ce7] transition-colors duration-500" />
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Sẵn sàng phân tích?</h3>
-              <p className="text-slate-500 max-w-sm">
-                AI sẽ quét qua lịch sử làm bài để chỉ ra những điểm bạn còn yếu và giúp bạn luyện tập thêm.
-              </p>
+              <div className="space-y-3">
+                <h3 className="text-3xl font-black text-white">Bạn sẵn sàng bứt phá?</h3>
+                <p className="text-slate-500 max-w-lg text-lg leading-relaxed font-medium">
+                  Gia sư AI sẽ phân tích mọi lỗi sai của bạn và gợi ý con đường ngắn nhất để đạt điểm tối đa. Bấm nút phía trên để bắt đầu!
+                </p>
+              </div>
             </div>
           )}
         </AnimatePresence>
       </div>
+      
+      <style jsx global>{`
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .animate-shimmer {
+          animation: shimmer 10s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }
