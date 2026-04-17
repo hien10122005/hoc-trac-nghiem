@@ -144,10 +144,23 @@ export default function QuizPage() {
 
     if (timerRef.current) clearInterval(timerRef.current);
 
-    // Calculate score
+    // Calculate score & identify incorrect questions
     let correct = 0;
+    const incorrectQuestions: unknown[] = [];
+
     s.userAnswers.forEach((ans, idx) => {
-      if (ans === s.questions[idx].correctAnswer) correct++;
+      const q = s.questions[idx];
+      if (ans === q.correctAnswer) {
+        correct++;
+      } else {
+        incorrectQuestions.push({
+          content: q.content,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          userAnswer: ans,
+          explanation: q.explanation
+        });
+      }
     });
 
     const score = Math.round((correct / s.questions.length) * 10);
@@ -164,6 +177,7 @@ export default function QuizPage() {
           score,
           correctAnswers: correct,
           totalQuestions: s.questions.length,
+          incorrectQuestions, // Lưu lại để AI phân tích
           createdAt: serverTimestamp()
         });
       }

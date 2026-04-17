@@ -18,6 +18,7 @@ import { Loader2 } from "lucide-react";
 // Components
 import HeroBanner from "@/components/dashboard/HeroBanner";
 import StatsWidget from "@/components/dashboard/StatsWidget";
+import AIReview from "@/components/dashboard/AIReview";
 import SubjectGrid from "@/components/dashboard/SubjectGrid";
 import Leaderboard from "@/components/dashboard/Leaderboard";
 
@@ -28,6 +29,14 @@ interface Subject {
   avgScore?: number;
 }
 
+interface IncorrectQuestion {
+  content: string;
+  options: string[];
+  correctAnswer: number;
+  userAnswer: number | null;
+  explanation: string;
+}
+
 interface Result {
   userId: string;
   userEmail: string;
@@ -35,6 +44,7 @@ interface Result {
   subjectName: string;
   score: number;
   createdAt: Timestamp;
+  incorrectQuestions?: IncorrectQuestion[];
 }
 
 interface LeaderboardEntry {
@@ -208,6 +218,9 @@ export default function DashboardPage() {
           <div className="lg:col-span-2 space-y-10">
             {/* Stats Chart */}
             <StatsWidget data={radarData} loading={dataLoading} />
+            
+            {/* AI Smart Review */}
+            <AIReview results={results} />
             
             {/* Subjects Grid */}
             <section className="space-y-6">
