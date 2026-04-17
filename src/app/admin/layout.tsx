@@ -13,9 +13,9 @@ import {
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import toast, { Toaster } from "react-hot-toast";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Toaster } from "react-hot-toast";
 
 export default function AdminLayout({
   children,
@@ -44,13 +44,14 @@ export default function AdminLayout({
   };
 
   const handleLogout = async () => {
-    if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
-      try {
-        await signOut(auth);
-        router.push("/login");
-      } catch (error) {
-        console.error("Logout error:", error);
-      }
+    const toastId = toast.loading("Đang đăng xuất...");
+    try {
+      await signOut(auth);
+      toast.success("Đã đăng xuất thành công", { id: toastId });
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Lỗi khi đăng xuất", { id: toastId });
     }
   };
 

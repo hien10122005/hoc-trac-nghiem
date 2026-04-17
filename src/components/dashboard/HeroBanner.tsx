@@ -1,8 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Flame, Quote } from "lucide-react";
+import { Flame, Quote, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 const MOTIVATIONAL_QUOTES = [
   "Học, học nữa, học mãi. - Lênin",
@@ -24,6 +28,7 @@ interface HeroBannerProps {
 
 export default function HeroBanner({ userName, streak }: HeroBannerProps) {
   const [quote, setQuote] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
     if (!quote) {
@@ -35,6 +40,18 @@ export default function HeroBanner({ userName, streak }: HeroBannerProps) {
     }
   }, [quote]);
 
+  const handleLogout = async () => {
+    const toastId = toast.loading("Đang đăng xuất...");
+    try {
+      await signOut(auth);
+      toast.success("Hẹn gặp lại bạn sớm!", { id: toastId });
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Lỗi khi đăng xuất", { id: toastId });
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -20 }}
@@ -42,6 +59,15 @@ export default function HeroBanner({ userName, streak }: HeroBannerProps) {
       transition={{ duration: 0.6 }}
       className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#1a1a2e] to-[#0f0f1b] p-8 md:p-12 border border-white/5 shadow-2xl"
     >
+      {/* Logout Button */}
+      <button 
+        onClick={handleLogout}
+        className="absolute top-6 right-6 z-20 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all group"
+      >
+        <LogOut size={16} className="group-hover:-translate-x-1 transition-transform" />
+        <span className="text-xs font-bold uppercase tracking-wider">Đăng xuất</span>
+      </button>
+
       {/* Background Glows */}
       <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[#6c5ce7]/10 blur-[80px]" />
       <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-[#00cec9]/10 blur-[80px]" />
