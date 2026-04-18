@@ -129,16 +129,7 @@ export default function QuizPage() {
      localStorage.removeItem(`draft_quiz_${subjectId}`);
      setShowResumeModal(false);
   };
-    currentIdx: 0,
-    userAnswers: [],
-    timeLeft: 20 * 60, // 20 minutes
-    isFinished: false,
-    score: 0,
-    correctCount: 0,
-    reviewMode: false,
-  });
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auth check
   useEffect(() => {
