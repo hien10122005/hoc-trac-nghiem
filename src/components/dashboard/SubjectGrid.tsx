@@ -38,14 +38,14 @@ export default function SubjectGrid({ subjects, loading, weakestSubjectId }: Sub
         return (
           <motion.div
             key={item.id}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: idx * 0.1 }}
+            transition={{ duration: 0.6, delay: Math.max(0, idx * 0.15), type: "spring", stiffness: 100 }}
             onClick={() => router.push(`/quiz/${item.id}`)}
-            className={`group relative p-8 rounded-[2rem] border transition-all cursor-pointer overflow-hidden backdrop-blur-xl flex flex-col justify-between h-64 ${
+            className={`group relative p-8 rounded-[2rem] border transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-xl flex flex-col justify-between h-64 hover:scale-[1.05] hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(108,92,231,0.2)] ${
               isWeakest 
-                ? "bg-red-500/5 border-red-500/20 shadow-[0_0_40px_rgba(239,68,68,0.1)]" 
-                : "bg-white/[0.03] border-white/5 hover:border-[#6c5ce7]/30 shadow-2xl"
+                ? "bg-red-500/5 border-red-500/20 shadow-[0_0_40px_rgba(239,68,68,0.1)] hover:border-red-500/50" 
+                : "bg-white/[0.03] border-white/5 hover:border-[#6c5ce7]/50 shadow-2xl"
             }`}
           >
             {/* Glow effect on hover */}

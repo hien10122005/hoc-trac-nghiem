@@ -26,8 +26,12 @@ import {
   Loader2,
   Send,
   HelpCircle,
-  Info
+  Info,
+  WifiOff,
+  Wifi
 } from "lucide-react";
+import toast from "react-hot-toast";
+import confetti from "canvas-confetti";
 
 interface Question {
   id: string;
@@ -58,6 +62,73 @@ export default function QuizPage() {
   
   const [state, setState] = useState<QuizState>({
     questions: [],
+    currentIdx: 0,
+    userAnswers: [],
+    timeLeft: 20 * 60, // 20 minutes
+    isFinished: false,
+    score: 0,
+    correctCount: 0,
+    reviewMode: false,
+  });
+
+  const [isOnline, setIsOnline] = useState(true);
+  const [showOnlineSuccess, setShowOnlineSuccess] = useState(false);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [draftData, setDraftData] = useState<{answers: (number|null)[], timeLeft: number, currentIdx: number} | null>(null);
+
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Network Status
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowOnlineSuccess(true);
+      setTimeout(() => setShowOnlineSuccess(false), 3000);
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // Check Draft
+  useEffect(() => {
+    if (typeof window !== "undefined" && subjectId) {
+       const saved = localStorage.getItem(`draft_quiz_${subjectId}`);
+       if (saved) {
+         try {
+           setDraftData(JSON.parse(saved));
+           setShowResumeModal(true);
+         } catch {
+           localStorage.removeItem(`draft_quiz_${subjectId}`);
+         }
+       }
+    }
+  }, [subjectId]);
+
+  const restoreDraft = () => {
+     if (draftData) {
+       setState(prev => ({
+          ...prev,
+          userAnswers: draftData.answers || prev.userAnswers,
+          timeLeft: draftData.timeLeft || prev.timeLeft,
+          currentIdx: draftData.currentIdx || prev.currentIdx
+       }));
+     }
+     setShowResumeModal(false);
+  };
+  
+  const discardDraft = () => {
+     localStorage.removeItem(`draft_quiz_${subjectId}`);
+     setShowResumeModal(false);
+  };
     currentIdx: 0,
     userAnswers: [],
     timeLeft: 20 * 60, // 20 minutes
@@ -99,12 +170,8 @@ export default function QuizPage() {
         if (subDoc.exists()) setSubjectName(subDoc.data().name);
 
         // Fetch Questions
-        const q = query(collection(db, "questions"), where("subjectId", "==", subjectId));
-        const querySnapshot = await getDocs(q);
-        const rawQuestions = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Question[];
+        const quizDoc = await getDoc(doc(db, "quizzes", subjectId));
+        const rawQuestions = quizDoc.exists() ? (quizDoc.data().questions as Question[] || []) : [];
 
         if (rawQuestions.length === 0) {
           setLoading(false);
@@ -141,6 +208,11 @@ export default function QuizPage() {
   const handleFinishQuiz = useCallback(async (currentState?: QuizState) => {
     const s = currentState || state;
     if (s.isFinished) return;
+
+    if (!navigator.onLine) {
+        toast.error("Không có kết nối mạng. Vui lòng kiểm tra lại Wi-Fi trước khi nộp bài để tránh mất dữ liệu.");
+        return;
+    }
 
     if (timerRef.current) clearInterval(timerRef.current);
 
@@ -181,6 +253,7 @@ export default function QuizPage() {
           createdAt: serverTimestamp()
         });
       }
+      localStorage.removeItem(`draft_quiz_${subjectId}`);
     } catch (error) {
       console.error("Error saving results:", error);
     }
@@ -191,6 +264,41 @@ export default function QuizPage() {
       correctCount: correct,
       score: score
     }));
+
+    if (score >= 8 || correct / s.questions.length >= 0.8) {
+      toast.success("Chúc mừng! Bạn đã đạt thành tích xuất sắc!", {
+          icon: '🎉',
+          style: {
+              borderRadius: '10px',
+              background: '#333',
+              color: '#fff',
+          },
+      });
+
+      const end = Date.now() + 3 * 1000;
+      const colors = ['#a25afd', '#ff5e7e', '#88ff5a', '#26ccff'];
+
+      (function frame() {
+        confetti({
+          particleCount: 8,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.8 },
+          colors: colors
+        });
+        confetti({
+          particleCount: 8,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.8 },
+          colors: colors
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      }());
+    }
   }, [state, subjectId, subjectName, user]);
 
   // Timer logic
@@ -212,6 +320,17 @@ export default function QuizPage() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [state.questions.length, state.isFinished, state.timeLeft, handleFinishQuiz]);
+
+  // Auto-save logic
+  useEffect(() => {
+    if (state.questions.length > 0 && !state.isFinished && subjectId) {
+      localStorage.setItem(`draft_quiz_${subjectId}`, JSON.stringify({
+        answers: state.userAnswers,
+        timeLeft: state.timeLeft,
+        currentIdx: state.currentIdx
+      }));
+    }
+  }, [state.userAnswers, state.timeLeft, state.currentIdx, state.questions.length, state.isFinished, subjectId]);
 
   const handleSelectOption = (optIdx: number) => {
     if (state.isFinished) return;
@@ -255,6 +374,37 @@ export default function QuizPage() {
 
   return (
     <div className="min-h-screen bg-[#0c0e17] text-[#f0f0fd] font-manrope selection:bg-[#6c5ce7]/30 flex flex-col">
+      {/* Network Status Banners */}
+      {!isOnline && (
+        <div className="fixed top-0 left-0 right-0 z-[100] bg-orange-500 text-black py-2 px-4 flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-orange-500/20 animate-in slide-in-from-top-4">
+          <WifiOff size={16} />
+          <span>Bị mất kết nối! Đừng lo, bạn vẫn có thể làm tiếp. Bài thi sẽ được lưu tự động.</span>
+        </div>
+      )}
+      {showOnlineSuccess && isOnline && (
+        <div className="fixed top-0 left-0 right-0 z-[100] bg-emerald-500 text-white py-2 px-4 flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-emerald-500/20 animate-in slide-in-from-top-4">
+          <Wifi size={16} />
+          <span>Đã khôi phục kết nối!</span>
+        </div>
+      )}
+
+      {/* Show Resume Modal */}
+      {showResumeModal && (
+         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#0c0e17]/95 backdrop-blur-xl animate-in fade-in duration-300">
+            <div className="max-w-md w-full rounded-3xl bg-[#10101f] border border-white/10 p-6 text-center shadow-2xl relative overflow-hidden">
+               <div className="h-16 w-16 mx-auto rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center mb-4">
+                 <Clock size={32} />
+               </div>
+               <h3 className="text-xl font-bold mb-2">Bạn có bài thi đang làm dở</h3>
+               <p className="text-slate-400 text-sm mb-6">Hệ thống phát hiện bản lưu nháp. Bạn có muốn tiếp tục làm bài không?</p>
+               <div className="flex justify-center gap-3">
+                 <button onClick={discardDraft} className="px-5 py-2.5 rounded-xl bg-white/5 font-medium hover:bg-white/10 transition">Làm lại từ đầu</button>
+                 <button onClick={restoreDraft} className="px-5 py-2.5 rounded-xl bg-blue-600 font-bold hover:bg-blue-500 transition shadow-lg shadow-blue-500/20 text-white">Tiếp tục thi</button>
+               </div>
+            </div>
+         </div>
+      )}
+
       {/* Background Decor */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#6c5ce7]/3 blur-[120px]" />
@@ -284,10 +434,10 @@ export default function QuizPage() {
           </div>
           <button 
             onClick={() => handleFinishQuiz()}
-            className="hidden sm:flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#6c5ce7] to-[#5b4bc4] text-white text-xs font-bold hover:scale-105 active:scale-95 transition-all shadow-lg shadow-[#6c5ce7]/20"
+            className="group flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] py-4 text-sm font-black transition-all hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(108,92,231,0.3)] animate-pulse"
           >
-            <Send size={14} />
-            <span>Nộp bài</span>
+            <Send size={18} />
+            <span className="tracking-wide">NỘP BÀI NGAY</span>
           </button>
         </div>
       </header>

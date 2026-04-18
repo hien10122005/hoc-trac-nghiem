@@ -20,15 +20,15 @@ import {
 } from "lucide-react";
 import { 
   collection, 
-  addDoc, 
-  onSnapshot, 
   query, 
   where, 
   orderBy, 
-  deleteDoc, 
   doc,
   serverTimestamp,
-  writeBatch
+  getDoc,
+  setDoc,
+  updateDoc,
+  onSnapshot
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import * as XLSX from "xlsx";
@@ -113,7 +113,7 @@ export default function QuestionsPage() {
         throw new Error("File trống hoặc định dạng không hợp lệ!");
       }
 
-      const batch = writeBatch(db);
+      const newQuestions: Question[] = [];
       let addedCount = 0;
 
       jsonData.forEach((row) => {
@@ -121,14 +121,14 @@ export default function QuestionsPage() {
           return; // Skip missing data row
         }
 
-        const newDocRef = doc(collection(db, "questions"));
-        batch.set(newDocRef, {
+        newQuestions.push({
+          id: crypto.randomUUID(),
           subjectId: selectedSubjectId,
           content: String(row.CauHoi),
           options: [String(row.DapAnA), String(row.DapAnB), String(row.DapAnC), String(row.DapAnD)],
           correctAnswer: Number(row.ViTriDapAnDung),
           explanation: row.GiaiThich ? String(row.GiaiThich) : "",
-          createdAt: serverTimestamp(),
+          createdAt: new Date().toISOString(),
         });
         addedCount++;
       });
@@ -138,7 +138,17 @@ export default function QuestionsPage() {
       }
 
       toast.loading(`Đang lưu ${addedCount} câu hỏi lên hệ thống...`, { id: toastId });
-      await batch.commit();
+      
+      const docRef = doc(db, "quizzes", selectedSubjectId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const existingQs = docSnap.data().questions || [];
+        await updateDoc(docRef, { questions: [...existingQs, ...newQuestions], updatedAt: serverTimestamp() });
+      } else {
+        await setDoc(docRef, { questions: newQuestions, updatedAt: serverTimestamp() });
+      }
+      
+      setQuestions(prev => [...prev, ...newQuestions]);
 
       toast.success(`Đã thêm thành công ${addedCount} câu hỏi!`, { id: toastId });
     } catch (error: unknown) {
@@ -175,25 +185,24 @@ export default function QuestionsPage() {
       return;
     }
 
-    const t = setTimeout(() => setLoading(true), 0);
-    // Lưu ý: Tạm thời bỏ orderBy("createdAt") để tránh lỗi 'The query requires an index'. 
-    // Khi bạn đã tạo Index trên Firebase Console, có thể thêm lại dòng này.
-    const q = query(
-      collection(db, "questions"), 
-      where("subjectId", "==", selectedSubjectId)
-    );
+    const fetchQuestions = async () => {
+      setLoading(true);
+      try {
+        const docRef = doc(db, "quizzes", selectedSubjectId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setQuestions(docSnap.data().questions || []);
+        } else {
+          setQuestions([]);
+        }
+      } catch (error) {
+        console.error("Error fetching questions:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const questionsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Question[];
-      setQuestions(questionsData);
-      const t = setTimeout(() => setLoading(false), 0);
-      return () => clearTimeout(t);
-    });
-
-    return () => unsubscribe();
+    fetchQuestions();
   }, [selectedSubjectId]);
 
   // Handle Add Question
@@ -211,14 +220,26 @@ export default function QuestionsPage() {
     setIsSubmitting(true);
     const toastId = toast.loading("Đang lưu câu hỏi...");
     try {
-      await addDoc(collection(db, "questions"), {
+      const newQuestion: Question = {
+        id: crypto.randomUUID(),
         subjectId: selectedSubjectId,
         content,
         options,
         correctAnswer,
         explanation,
-        createdAt: serverTimestamp(),
-      });
+        createdAt: new Date().toISOString(),
+      };
+
+      const docRef = doc(db, "quizzes", selectedSubjectId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const existingQs = docSnap.data().questions || [];
+        await updateDoc(docRef, { questions: [...existingQs, newQuestion], updatedAt: serverTimestamp() });
+      } else {
+        await setDoc(docRef, { questions: [newQuestion], updatedAt: serverTimestamp() });
+      }
+      
+      setQuestions(prev => [...prev, newQuestion]);
       
       // Reset & Close
       setContent("");
@@ -238,7 +259,14 @@ export default function QuestionsPage() {
   const handleDeleteQuestion = async (id: string) => {
     if (confirm("Bạn có chắc chắn muốn xóa câu hỏi này?")) {
       try {
-          await deleteDoc(doc(db, "questions", id));
+          const newQuestionsList = questions.filter(q => q.id !== id);
+          if (newQuestionsList.length > 0) {
+             await updateDoc(doc(db, "quizzes", selectedSubjectId), { questions: newQuestionsList, updatedAt: serverTimestamp() });
+          } else {
+             // If empty, just set it to empty array or delete the doc (setting to empty is fine)
+             await updateDoc(doc(db, "quizzes", selectedSubjectId), { questions: [], updatedAt: serverTimestamp() });
+          }
+          setQuestions(newQuestionsList);
           toast.success("Đã xóa câu hỏi.");
         } catch (error) {
           console.error("Error deleting question:", error);

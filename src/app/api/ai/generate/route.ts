@@ -1,14 +1,18 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
-
 export async function POST(req: Request) {
   try {
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "";
+    if (!apiKey) {
+      return NextResponse.json({ error: "API Key chưa được cấu hình. Vui lòng kiểm tra lại biến môi trường." }, { status: 500 });
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
     const { wrongQuestions } = await req.json();
 
-    if (!wrongQuestions || !Array.isArray(wrongQuestions)) {
-      return NextResponse.json({ error: "Dữ liệu câu hỏi không hợp lệ" }, { status: 400 });
+    if (!wrongQuestions || !Array.isArray(wrongQuestions) || wrongQuestions.length === 0) {
+      return NextResponse.json({ error: "Bạn cần hoàn thành ít nhất 1 bài thi để AI có dữ liệu phân tích" }, { status: 400 });
     }
 
     // Model Lite để xử lý nhanh nhất
@@ -35,7 +39,15 @@ export async function POST(req: Request) {
       Lưu ý: "correctAnswer" là số nguyên từ 0-3 tương ứng với vị trí đáp án đúng trong mảng options.
     `;
 
-    const result = await model.generateContent(prompt);
+    console.log("Calling Gemini API for AI Smart Review. Total questions to analyze:", wrongQuestions.length);
+    let result;
+    try {
+      result = await model.generateContent(prompt);
+    } catch (apiError: any) {
+      console.error("Lỗi từ Gemini API:", apiError);
+      return NextResponse.json({ error: "Lỗi kết nối Gemini API bị từ chối: " + apiError.message }, { status: 502 });
+    }
+
     const response = await result.response;
     const text = response.text();
     

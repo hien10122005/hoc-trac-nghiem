@@ -63,7 +63,7 @@ export default function AIReview({ results }: AIReviewProps) {
   const handleAIAnalyze = async () => {
     const wrongQuestions = getIncorrectData();
     if (wrongQuestions.length === 0) {
-      toast.error("Bạn chưa có câu hỏi sai nào để AI phân tích!");
+      toast.error("Bạn cần hoàn thành ít nhất 1 bài thi để AI có dữ liệu phân tích");
       return;
     }
 
@@ -142,7 +142,7 @@ export default function AIReview({ results }: AIReviewProps) {
           <button
             onClick={handleAIAnalyze}
             disabled={loading}
-            className="group/btn flex items-center gap-3 px-8 py-3.5 rounded-2xl bg-white text-black font-black text-sm hover:bg-[#6c5ce7] hover:text-white transition-all duration-500 shadow-2xl shadow-black/20 disabled:opacity-50"
+            className="group/btn flex items-center gap-3 px-8 py-3.5 rounded-2xl bg-white text-black font-black text-sm hover:bg-[#6c5ce7] hover:text-white transition-all duration-500 shadow-2xl shadow-black/20 disabled:opacity-50 animate-pulse"
           >
             {loading ? <Loader2 size={20} className="animate-spin" /> : <RefreshCw size={20} className="group-hover/btn:rotate-180 transition-transform duration-500" />}
             {aiData ? "Phân tích lại" : "Khám phá tiềm năng"}

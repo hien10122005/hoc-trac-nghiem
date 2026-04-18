@@ -12,7 +12,8 @@ import {
   where,
   Timestamp,
   doc,
-  getDoc
+  getDoc,
+  getDocs
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
@@ -96,16 +97,21 @@ export default function AdminDashboard() {
 
     async function fetchCounts() {
       try {
-        const [subCount, qCount, userCount, resCount] = await Promise.all([
+        const [subCount, quizzesSnap, userCount, resCount] = await Promise.all([
           getCountFromServer(collection(db, "subjects")),
-          getCountFromServer(collection(db, "questions")),
+          getDocs(collection(db, "quizzes")),
           getCountFromServer(query(collection(db, "users"), where("role", "==", "student"))),
           getCountFromServer(collection(db, "results"))
         ]);
 
+        let totalQuestions = 0;
+        quizzesSnap.forEach(doc => {
+          totalQuestions += (doc.data().questions?.length || 0);
+        });
+
         setStats({
           subjects: subCount.data().count,
-          questions: qCount.data().count,
+          questions: totalQuestions,
           students: userCount.data().count,
           results: resCount.data().count
         });
