@@ -7,7 +7,9 @@ import {
   doc,
   getDoc,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  setDoc,
+  increment
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -219,8 +221,11 @@ export default function QuizPage() {
     // Optimized Result Saving (1 Write Document = 1 Session)
     if (user) {
       try {
+        const userId = (user as any).uid;
+        
+        // 1. Lưu kết quả thi chi tiết (Dành cho bảng lịch sử)
         await addDoc(collection(db, "results"), {
-          userId: (user as any).uid,
+          userId,
           userEmail: (user as any).email,
           subjectId,
           subjectName,
@@ -229,8 +234,38 @@ export default function QuizPage() {
           totalQuestions: total,
           createdAt: serverTimestamp()
         });
+
+        // 2. Aggregation: Cập nhật tài liệu tổng hợp user_stats
+        const statsRef = doc(db, "user_stats", userId);
+        
+        const updateData: any = {
+          totalExams: increment(1),
+          totalCorrect: increment(correct),
+          totalQuestions: increment(total),
+          totalScoreSum: increment(score),
+          lastUpdatedAt: serverTimestamp()
+        };
+
+        // Cập nhật thống kê theo môn học cụ thể
+        updateData[`subjectStats.${subjectId}.totalExams`] = increment(1);
+        updateData[`subjectStats.${subjectId}.totalCorrect`] = increment(correct);
+        updateData[`subjectStats.${subjectId}.totalQuestions`] = increment(total);
+        updateData[`subjectStats.${subjectId}.totalScoreSum`] = increment(score);
+        updateData[`subjectStats.${subjectId}.name`] = subjectName;
+
+        // Dùng merge: true để tạo mới nếu chưa có hoặc cập nhật nếu đã có
+        await setDoc(statsRef, updateData, { merge: true });
+
+        // 3. Cập nhật Best Score (Chỉ khi điểm mới cao hơn điểm cũ)
+        const statsSnap = await getDoc(statsRef);
+        if (statsSnap.exists()) {
+          const stats = statsSnap.data();
+          if (score > (stats.bestScore || 0)) {
+            await setDoc(statsRef, { bestScore: score }, { merge: true });
+          }
+        }
       } catch (error) {
-        console.warn("Could not save result (likely permission issue), but result shown locally:", error);
+        console.warn("Could not save result/update stats:", error);
       }
     }
 

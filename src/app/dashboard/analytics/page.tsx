@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { auth, db } from "@/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { auth, db, getCachedDocs } from "@/lib/firebase";
+import { collection, query, where, getDocs, doc, getDoc, orderBy, limit } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   BarChart3,
@@ -14,6 +14,7 @@ import {
   Flame,
   Loader2,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import {
   LineChart,
@@ -65,38 +66,57 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function AnalyticsPage() {
-  const [results, setResults] = useState<QuizResult[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedSubject, setSelectedSubject] = useState<string>("all");
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [aggregatedStats, setAggregatedStats] = useState<any>(null);
 
-  // ─── Fetch Results ──────────────────────────────────
+  // ─── Fetch Data ─────────────────────────────────────
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          // Chỉ dùng where(), bỏ orderBy() để không cần composite index
-          const q = query(
-            collection(db, "results"),
-            where("userId", "==", user.uid)
-          );
-          const snapshot = await getDocs(q);
-          const data = snapshot.docs.map((doc) => ({
+          // 1. Fetch Aggregated Stats (1 Read)
+          const statsDoc = await getDoc(doc(db, "user_stats", user.uid));
+          if (statsDoc.exists()) {
+            setAggregatedStats(statsDoc.data());
+          }
+
+          // 2. Fetch Recent Results (limit 20) instead of all to save READs
+          // Note: If no composite index exists for [userId + createdAt], 
+          // we fallback to fetching without orderBy and sort client-side.
+          let q;
+          try {
+            q = query(
+              collection(db, "results"),
+              where("userId", "==", user.uid),
+              orderBy("createdAt", "desc"),
+              limit(20)
+            );
+          } catch (e) {
+            console.warn("Index not found, fetching without order/limit fallback");
+            q = query(
+              collection(db, "results"),
+              where("userId", "==", user.uid)
+            );
+          }
+          
+          const snapshot = await getCachedDocs(q);
+          let data = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           })) as QuizResult[];
 
-          // Sort phía client theo createdAt (ascending)
+          // Sort client-side anyway to ensure order
           data.sort((a, b) => {
             const dateA = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
             const dateB = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
             return dateA - dateB;
           });
 
-          console.log(`Analytics: Loaded ${data.length} results for user ${user.uid}`);
+          // Limit to 20 if we fetched everything
+          if (data.length > 20) data = data.slice(-20);
+
           setResults(data);
         } catch (err: any) {
-          console.error("Analytics Error fetching results:", err.message, err.code, err);
+          console.error("Analytics Error:", err.message);
         }
       }
       setLoading(false);
@@ -117,38 +137,59 @@ export default function AnalyticsPage() {
 
   // ─── Stats Cards Data ──────────────────────────────
   const stats = useMemo(() => {
-    if (filteredResults.length === 0) return null;
-
-    const avgScore = filteredResults.reduce((a, r) => a + r.score, 0) / filteredResults.length;
-    const bestScore = Math.max(...filteredResults.map((r) => r.score));
-    const totalCorrect = filteredResults.reduce((a, r) => a + r.correctCount, 0);
-    const totalQuestions = filteredResults.reduce((a, r) => a + r.totalQuestions, 0);
-    const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
-
-    // Streak: consecutive results with score >= 5
-    let streak = 0;
-    for (let i = filteredResults.length - 1; i >= 0; i--) {
-      if (filteredResults[i].score >= 5) streak++;
-      else break;
+    if (!aggregatedStats) {
+       // Fallback to calculation if stats doc doesn't exist yet
+       if (filteredResults.length === 0) return null;
+       const avgScore = filteredResults.reduce((a, r) => a + r.score, 0) / filteredResults.length;
+       const bestScore = Math.max(...filteredResults.map((r) => r.score));
+       const totalCorrect = filteredResults.reduce((a, r) => a + r.correctCount, 0);
+       const totalQuestions = filteredResults.reduce((a, r) => a + r.totalQuestions, 0);
+       const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+       return {
+         totalExams: filteredResults.length,
+         avgScore: avgScore.toFixed(1),
+         bestScore,
+         accuracy,
+         streak: 0,
+         trend: "0.0",
+         trendUp: true,
+       };
     }
 
-    // Trend (last 5 vs previous 5)
-    const recent = filteredResults.slice(-5);
-    const previous = filteredResults.slice(-10, -5);
-    const recentAvg = recent.length > 0 ? recent.reduce((a, r) => a + r.score, 0) / recent.length : 0;
-    const prevAvg = previous.length > 0 ? previous.reduce((a, r) => a + r.score, 0) / previous.length : 0;
-    const trend = previous.length > 0 ? recentAvg - prevAvg : 0;
+    // Use Aggregated Stats for "all" mode
+    if (selectedSubject === "all") {
+       const { totalExams, totalScoreSum, bestScore, totalCorrect, totalQuestions } = aggregatedStats;
+       const avgScore = totalExams > 0 ? totalScoreSum / totalExams : 0;
+       const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+       
+       return {
+         totalExams,
+         avgScore: avgScore.toFixed(1),
+         bestScore,
+         accuracy,
+         streak: aggregatedStats.streak || 0,
+         trend: "N/A", // Trend requires historical context which stats doc alone doesn't have
+         trendUp: true,
+       };
+    } else {
+       // Per subject stats from the nested object
+       const sub = Object.values(aggregatedStats.subjectStats || {}).find((s: any) => s.name === selectedSubject) as any;
+       if (!sub) return null;
+       
+       const avgScore = sub.totalExams > 0 ? sub.totalScoreSum / sub.totalExams : 0;
+       const accuracy = sub.totalQuestions > 0 ? Math.round((sub.totalCorrect / sub.totalQuestions) * 100) : 0;
 
-    return {
-      totalExams: filteredResults.length,
-      avgScore: avgScore.toFixed(1),
-      bestScore,
-      accuracy,
-      streak,
-      trend: trend.toFixed(1),
-      trendUp: trend >= 0,
-    };
-  }, [filteredResults]);
+       return {
+         totalExams: sub.totalExams,
+         avgScore: avgScore.toFixed(1),
+         bestScore: "—", // Best score per subject not yet implemented in aggregation
+         accuracy,
+         streak: 0,
+         trend: "N/A",
+         trendUp: true,
+       };
+    }
+  }, [aggregatedStats, filteredResults, selectedSubject]);
 
   // ─── Progress Over Time (Line Chart) ───────────────
   const progressData = useMemo(() => {
@@ -164,18 +205,18 @@ export default function AnalyticsPage() {
 
   // ─── Subject Performance (Radar Chart) ─────────────
   const radarData = useMemo(() => {
-    const map: Record<string, { total: number; count: number }> = {};
-    results.forEach((r) => {
-      if (!map[r.subjectName]) map[r.subjectName] = { total: 0, count: 0 };
-      map[r.subjectName].total += r.score;
-      map[r.subjectName].count++;
+    if (!aggregatedStats || !aggregatedStats.subjectStats) return [];
+    
+    return Object.entries(aggregatedStats.subjectStats).map(([id, data]: [string, any]) => {
+      const name = data.name || "Môn học";
+      const avg = data.totalExams > 0 ? data.totalScoreSum / data.totalExams : 0;
+      return {
+        subject: name.length > 15 ? name.substring(0, 15) + "..." : name,
+        fullName: name,
+        "Trung bình": parseFloat(avg.toFixed(1)),
+      };
     });
-    return Object.entries(map).map(([name, { total, count }]) => ({
-      subject: name.length > 15 ? name.substring(0, 15) + "..." : name,
-      fullName: name,
-      "Trung bình": parseFloat((total / count).toFixed(1)),
-    }));
-  }, [results]);
+  }, [aggregatedStats]);
 
   // ─── Score Distribution (Bar Chart) ────────────────
   const distributionData = useMemo(() => {

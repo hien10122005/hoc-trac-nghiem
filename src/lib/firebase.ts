@@ -1,6 +1,12 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { 
+  getFirestore, 
+  enableIndexedDbPersistence, 
+  getDocs, 
+  getDocsFromCache,
+  Query
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBYQZhZ_2RPKqb59vn_idWpsRWqkm3gjjI",
@@ -17,4 +23,36 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// Bật chế độ lưu trữ offline (Persistence)
+if (typeof window !== "undefined") {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn("Firestore Persistence: Đang mở nhiều tab, chỉ bật được ở 1 tab.");
+    } else if (err.code === 'unimplemented') {
+      console.warn("Firestore Persistence: Trình duyệt không hỗ trợ.");
+    }
+  });
+}
+
+/**
+ * Helper: Thử lấy dữ liệu từ Cache trước, nếu không có mới gọi Server.
+ * Giúp tiết kiệm lượt Read và tăng tốc độ hiển thị.
+ */
+export async function getCachedDocs(q: Query) {
+  try {
+    const snapshot = await getDocsFromCache(q);
+    if (!snapshot.empty) {
+      console.log("Firestore: Loaded from Cache");
+      return snapshot;
+    }
+  } catch (err) {
+    // Chỉ log lỗi nếu không phải là lỗi "không tìm thấy trong cache"
+  }
+  
+  const serverSnapshot = await getDocs(q);
+  console.log("Firestore: Loaded from Server (Reads count!)");
+  return serverSnapshot;
+}
+
 export { app, auth, db };
+

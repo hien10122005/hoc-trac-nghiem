@@ -48,27 +48,25 @@ export default function DashboardPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // Fetch Subjects and User Results
+  // Fetch Subjects
   useEffect(() => {
-    if (!user) return;
-
-    // Fetch Subjects
-    const qSub = query(collection(db, "subjects"), orderBy("name", "asc"));
-    const unsubSub = onSnapshot(qSub, (snapshot) => {
-      const subjectsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as unknown as Subject[];
-      setSubjects(subjectsData);
-      setSubjectsLoading(false);
-    }, (error) => {
-      console.error("Error fetching subjects:", error);
-      setSubjectsLoading(false);
-    });
-
-    return () => {
-      unsubSub();
-    };
+    async function fetchSubjects() {
+      if (!user) return;
+      try {
+        const qSub = query(collection(db, "subjects"), orderBy("name", "asc"));
+        const snapshot = await getCachedDocs(qSub);
+        const subjectsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as unknown as Subject[];
+        setSubjects(subjectsData);
+      } catch (error) {
+        console.error("Error fetching subjects:", error);
+      } finally {
+        setSubjectsLoading(false);
+      }
+    }
+    fetchSubjects();
   }, [user]);
 
   const handleSubjectSelect = (id: string, name: string) => {
