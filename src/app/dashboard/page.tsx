@@ -17,10 +17,8 @@ import { Loader2 } from "lucide-react";
 
 // Components
 import HeroBanner from "@/components/dashboard/HeroBanner";
-import StatsWidget from "@/components/dashboard/StatsWidget";
 import AIReview from "@/components/dashboard/AIReview";
 import SubjectGrid from "@/components/dashboard/SubjectGrid";
-import Leaderboard from "@/components/dashboard/Leaderboard";
 
 interface Subject {
   id: string;
@@ -47,20 +45,14 @@ interface Result {
   incorrectQuestions?: IncorrectQuestion[];
 }
 
-interface LeaderboardEntry {
-  userId: string;
-  userEmail: string;
-  totalScore: number;
-}
-
 export default function DashboardPage() {
   const [user, setUser] = useState<unknown>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [results, setResults] = useState<Result[]>([]);
-  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
   
   const [loading, setLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(true);
+  const [subjectsLoading, setSubjectsLoading] = useState(true);
+  const [resultsLoading, setResultsLoading] = useState(true);
   const router = useRouter();
 
   // Auth check
@@ -88,6 +80,10 @@ export default function DashboardPage() {
         ...doc.data()
       })) as unknown as Subject[];
       setSubjects(subjectsData);
+      setSubjectsLoading(false);
+    }, (error) => {
+      console.error("Error fetching subjects:", error);
+      setSubjectsLoading(false);
     });
 
     // Fetch User Results for Statistics/Streak
@@ -102,7 +98,10 @@ export default function DashboardPage() {
         ...doc.data()
       })) as unknown as Result[];
       setResults(resultsData);
-      setDataLoading(false);
+      setResultsLoading(false);
+    }, (error) => {
+      console.error("Error fetching results:", error);
+      setResultsLoading(false);
     });
 
     return () => {
@@ -110,36 +109,6 @@ export default function DashboardPage() {
       unsubRes();
     };
   }, [user]);
-
-  // Fetch Global Leaderboard
-  useEffect(() => {
-    async function fetchLeaderboard() {
-      try {
-        const qLevel = query(collection(db, "results"), orderBy("score", "desc"));
-        const snapshot = await getDocs(qLevel);
-        
-        // Group by user and calculate total score
-        const userScores: Record<string, { email: string, total: number }> = {};
-        snapshot.docs.forEach(doc => {
-          const data = doc.data();
-          if (!userScores[data.userId]) {
-            userScores[data.userId] = { email: data.userEmail, total: 0 };
-          }
-          userScores[data.userId].total += data.score;
-        });
-
-        const sorted = Object.entries(userScores)
-          .map(([id, info]) => ({ userId: id, userEmail: info.email, totalScore: info.total }))
-          .sort((a, b) => b.totalScore - a.totalScore)
-          .slice(0, 5);
-          
-        setLeaderboardData(sorted);
-      } catch (err) {
-        console.error("Leaderboard fetch error", err);
-      }
-    }
-    fetchLeaderboard();
-  }, []);
 
   // Calculate Streak
   const streakCount = (() => {
@@ -171,27 +140,7 @@ export default function DashboardPage() {
     return streak;
   })();
 
-  // Calculate Radar Data (Avg score per subject)
-  const radarData = subjects.map(sub => {
-    const subResults = results.filter(r => r.subjectId === sub.id);
-    const avg = subResults.length > 0 
-      ? subResults.reduce((acc, r) => acc + r.score, 0) / subResults.length 
-      : 0;
-    return {
-      subject: sub.name,
-      score: Number(avg.toFixed(1)),
-      fullMark: 10
-    };
-  }).filter(d => d.score > 0 || subjects.length <= 5); // Show all if few subjects
 
-  // Identify Weakest
-  const weakestSubjectId = (() => {
-    const scoredSubjects = radarData.filter(d => d.score > 0);
-    if (scoredSubjects.length === 0) return undefined;
-    const minScore = Math.min(...scoredSubjects.map(d => d.score));
-    const weakest = scoredSubjects.find(d => d.score === minScore);
-    return subjects.find(s => s.name === weakest?.subject)?.id;
-  })();
 
   if (loading) {
     return (
@@ -213,40 +162,35 @@ export default function DashboardPage() {
         {/* TOP: Hero Banner */}
         <HeroBanner userName={(user as { email?: string })?.email?.split('@')[0] || "Học viên"} streak={streakCount} />
 
-        {/* MIDDLE: Stats & Continued Learning */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2 space-y-10">
-            {/* Stats Chart */}
-            <StatsWidget data={radarData} loading={dataLoading} />
-            
-            {/* AI Smart Review */}
-            <AIReview results={results} />
-            
-            {/* Subjects Grid */}
-            <section className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <h2 className="text-2xl font-bold tracking-tight">Cửa hàng môn học</h2>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Chọn thử thách tiếp theo</p>
-                </div>
-                <div className="h-px flex-1 mx-8 bg-gradient-to-r from-white/10 to-transparent" />
+        {/* MAIN CONTENT: AI Review & Subjects */}
+        <div className="space-y-10 max-w-5xl mx-auto">
+          {/* AI Smart Review */}
+          <AIReview results={results} />
+          
+          {/* Subjects Grid */}
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <h2 className="text-2xl font-bold tracking-tight text-white">Cửa hàng môn học</h2>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Chọn thử thách tiếp theo</p>
               </div>
-              
-              <SubjectGrid 
-                subjects={subjects.map(s => ({
+              <div className="h-px flex-1 mx-8 bg-gradient-to-r from-white/10 to-transparent" />
+            </div>
+            
+            <SubjectGrid 
+              subjects={subjects.map(s => {
+                const subResults = results.filter(r => r.subjectId === s.id);
+                const avg = subResults.length > 0 
+                  ? subResults.reduce((acc, r) => acc + r.score, 0) / subResults.length 
+                  : undefined;
+                return {
                   ...s,
-                  avgScore: radarData.find(d => d.subject === s.name)?.score
-                }))} 
-                loading={dataLoading} 
-                weakestSubjectId={weakestSubjectId}
-              />
-            </section>
-          </div>
-
-          <div className="lg:col-span-1">
-            {/* Sidebar: Leaderboard */}
-            <Leaderboard entries={leaderboardData} loading={dataLoading} />
-          </div>
+                  avgScore: avg !== undefined ? Number(avg.toFixed(1)) : undefined
+                };
+              })} 
+              loading={subjectsLoading} 
+            />
+          </section>
         </div>
       </div>
 

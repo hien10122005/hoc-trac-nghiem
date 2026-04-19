@@ -51,17 +51,23 @@ export default function MigratePage() {
     setProgress("Bắt đầu lấy dữ liệu từ 'questions'...");
 
     try {
+      console.log("Migration started...");
       // 1. Fetch all questions
-      const snapshot = await getDocs(collection(db, "questions"));
+      setProgress("Đang lấy danh sách câu hỏi từ 'questions' (Read request)...");
+      const questionsRef = collection(db, "questions");
+      const snapshot = await getDocs(questionsRef);
+      
       const allQuestions: Question[] = [];
       snapshot.forEach(doc => {
         allQuestions.push({ id: doc.id, ...doc.data() } as Question);
       });
 
+      console.log(`Fetched ${allQuestions.length} questions.`);
+
       if (allQuestions.length === 0) {
         toast.error("Không có câu hỏi nào để migrate!");
         setIsMigrating(false);
-        setProgress("");
+        setProgress("Không tìm thấy dữ liệu trong collection 'questions'.");
         return;
       }
 
@@ -70,45 +76,65 @@ export default function MigratePage() {
       // 2. Group by subjectId
       const groupedBySubject: Record<string, Question[]> = {};
       allQuestions.forEach(q => {
+        if (!q.subjectId) {
+          console.warn(`Question ${q.id} missing subjectId`);
+          return;
+        }
         if (!groupedBySubject[q.subjectId]) {
           groupedBySubject[q.subjectId] = [];
         }
-        // Remove subjectId from inside the nested object to save space if desired, 
-        // but keeping it is fine. We'll ensure it has an ID.
         groupedBySubject[q.subjectId].push(q);
       });
 
       // 3. Write to 'quizzes' collection
       let subjectCount = 0;
-      for (const subjectId in groupedBySubject) {
+      const subjectIds = Object.keys(groupedBySubject);
+      for (const subjectId of subjectIds) {
         subjectCount++;
-        setProgress(`Đang lưu môn học ${subjectCount}/${Object.keys(groupedBySubject).length} (ID: ${subjectId})...`);
+        setProgress(`[Bước 1/2] Đang ghi môn học ${subjectCount}/${subjectIds.length} (ID: ${subjectId})...`);
         
-        await setDoc(doc(db, "quizzes", subjectId), {
-          questions: groupedBySubject[subjectId],
-          updatedAt: serverTimestamp()
-        }, { merge: true });
+        try {
+          await setDoc(doc(db, "quizzes", subjectId), {
+            questions: groupedBySubject[subjectId],
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        } catch (setErr: any) {
+          console.error(`Error writing subject ${subjectId}:`, setErr);
+          throw new Error(`Lỗi khi ghi dữ liệu vào 'quizzes/${subjectId}': ${setErr.message}`);
+        }
       }
 
       // 4. Delete old queries (using batching)
       let deletedCount = 0;
       let batch = writeBatch(db);
+      setProgress(`[Bước 2/2] Bắt đầu xóa ${allQuestions.length} câu hỏi cũ...`);
+      
       for (let i = 0; i < allQuestions.length; i++) {
         batch.delete(doc(db, "questions", allQuestions[i].id));
         deletedCount++;
-        if (deletedCount % 500 === 0 || i === allQuestions.length - 1) {
-          setProgress(`Đang xóa câu hỏi cũ (${deletedCount}/${allQuestions.length})...`);
-          await batch.commit();
-          batch = writeBatch(db);
+        
+        if (deletedCount % 400 === 0 || i === allQuestions.length - 1) {
+          setProgress(`[Bước 2/2] Đang xóa câu hỏi cũ (${deletedCount}/${allQuestions.length})...`);
+          try {
+            await batch.commit();
+            console.log(`Committed batch delete up to ${deletedCount}`);
+            batch = writeBatch(db);
+          } catch (delErr: any) {
+            console.error("Batch delete error:", delErr);
+            throw new Error(`Lỗi khi xóa dữ liệu cũ (Batch): ${delErr.message}`);
+          }
         }
       }
 
       setProgress("✅ Hoàn tất migration thành công!");
       toast.success("Đã cấu trúc lại dữ liệu thành công!");
     } catch (error: any) {
-      console.error("Migration error:", error);
-      toast.error("Lỗi trong quá trình migration: " + error.message);
-      setProgress("❌ Lỗi: " + error.message);
+      console.error("Full Migration Error Trace:", error);
+      const msg = error.code === 'permission-denied' 
+        ? "Lỗi quyền truy cập (Permission Denied). Vui lòng kiểm tra Firebase Rules." 
+        : error.message;
+      toast.error("Lỗi: " + msg);
+      setProgress("❌ Lỗi: " + msg);
     } finally {
       setIsMigrating(false);
     }
