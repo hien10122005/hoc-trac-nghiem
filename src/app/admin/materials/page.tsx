@@ -133,9 +133,9 @@ export default function MaterialsPage() {
       }
       setIsModalOpen(false);
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving material:", error);
-      toast.error("Đã có lỗi xảy ra.");
+      toast.error(`Lỗi: ${error.message || "Đã có lỗi xảy ra"}`);
     } finally {
       setIsSubmitting(false);
     }
