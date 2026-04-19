@@ -67,7 +67,7 @@ export default function LibraryPage() {
 
   return (
     <div className="space-y-10">
-      <div className="space-y-2">
+      <div className="max-w-6xl mx-auto space-y-2">
         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
           <BookOpen className="text-[#00cec9]" size={32} />
           Thư viện tài liệu
@@ -76,23 +76,25 @@ export default function LibraryPage() {
       </div>
 
       {selectedSubject ? (
-        <MaterialGrid 
-          subjectId={selectedSubject.id} 
-          subjectName={selectedSubject.name} 
-          onBack={() => setSelectedSubject(null)} 
-        />
+        <div className="max-w-6xl mx-auto">
+          <MaterialGrid 
+            subjectId={selectedSubject.id} 
+            subjectName={selectedSubject.name} 
+            onBack={() => setSelectedSubject(null)} 
+          />
+        </div>
       ) : (
-        <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
+        <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-500">
           {/* Filters Bar */}
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
              <div className="relative w-full sm:w-96">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                 <input 
-                  type="text" 
-                  placeholder="Tìm kiếm môn học..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-600 outline-none focus:border-[#00cec9] transition-all"
+                   type="text" 
+                   placeholder="Tìm kiếm môn học..."
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                   className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-600 outline-none focus:border-[#00cec9] transition-all"
                 />
              </div>
              <button className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors">

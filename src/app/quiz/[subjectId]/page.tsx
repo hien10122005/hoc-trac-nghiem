@@ -25,7 +25,9 @@ import {
   HelpCircle,
   Info,
   WifiOff,
-  Wifi
+  Wifi,
+  Sparkles,
+  Brain
 } from "lucide-react";
 import toast from "react-hot-toast";
 import confetti from "canvas-confetti";
@@ -72,6 +74,9 @@ export default function QuizPage() {
   const [showOnlineSuccess, setShowOnlineSuccess] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [draftData, setDraftData] = useState<{answers: (number|null)[], timeLeft: number, currentIdx: number} | null>(null);
+
+  const [aiExplanations, setAiExplanations] = useState<Record<string, string>>({});
+  const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -322,6 +327,37 @@ export default function QuizPage() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  const handleAIExplain = async (qIdx: number) => {
+    const question = state.questions[qIdx];
+    const qKey = `${subjectId}_${qIdx}`;
+    
+    if (aiExplanations[qKey]) return;
+
+    setAiLoading(prev => ({ ...prev, [qKey]: true }));
+    try {
+      const res = await fetch("/api/ai/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: question.content,
+          options: question.options,
+          correctAnswer: question.correctAnswer,
+          userAnswer: state.userAnswers[qIdx]
+        })
+      });
+      const data = await res.json();
+      if (data.explanation) {
+        setAiExplanations(prev => ({ ...prev, [qKey]: data.explanation }));
+      } else {
+        toast.error(data.error || "Không thể lấy giải thích từ AI");
+      }
+    } catch (err) {
+      toast.error("Lỗi kết nối AI");
+    } finally {
+      setAiLoading(prev => ({ ...prev, [qKey]: false }));
+    }
+  };
+
   // UI States
   if (loading) {
     return (
@@ -387,33 +423,35 @@ export default function QuizPage() {
       </div>
 
       {/* Header / Nav */}
-      <header className="relative z-50 px-6 py-4 border-b border-white/5 bg-[#0c0e17]/80 backdrop-blur-md flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button 
-             onClick={() => { if(confirm("Bạn có chắc muốn thoát? Kết quả sẽ không được lưu.")) router.push("/dashboard") }}
-             className="p-2.5 rounded-xl hover:bg-white/5 text-slate-400 transition-colors"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="h-8 w-px bg-white/10 hidden sm:block" />
-          <div>
-            <h1 className="text-sm font-bold tracking-tight text-[#aca3ff] uppercase">{subjectName}</h1>
-            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Đang ôn tập</p>
+      <header className="relative z-50 px-6 py-4 border-b border-white/5 bg-[#0c0e17]/80 backdrop-blur-md">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button 
+               onClick={() => { if(confirm("Bạn có chắc muốn thoát? Kết quả sẽ không được lưu.")) router.push("/dashboard") }}
+               className="p-2.5 rounded-xl hover:bg-white/5 text-slate-400 transition-colors"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="h-8 w-px bg-white/10 hidden sm:block" />
+            <div>
+              <h1 className="text-sm font-bold tracking-tight text-[#aca3ff] uppercase">{subjectName}</h1>
+              <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Đang ôn tập</p>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-6">
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${state.timeLeft < 300 ? "bg-red-500/10 border-red-500/30 text-red-500 animate-pulse" : "bg-white/5 border-white/10 text-white"}`}>
-            <Clock size={16} />
-            <span className="font-mono font-bold">{formatTime(state.timeLeft)}</span>
+          <div className="flex items-center gap-6">
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${state.timeLeft < 300 ? "bg-red-500/10 border-red-500/30 text-red-500 animate-pulse" : "bg-white/5 border-white/10 text-white"}`}>
+              <Clock size={16} />
+              <span className="font-mono font-bold">{formatTime(state.timeLeft)}</span>
+            </div>
+            <button 
+              onClick={() => handleFinishQuiz()}
+              className="group hidden sm:flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] px-6 py-3 text-sm font-black transition-all hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(108,92,231,0.3)]"
+            >
+              <Send size={18} />
+              <span className="tracking-wide uppercase">Nộp bài</span>
+            </button>
           </div>
-          <button 
-            onClick={() => handleFinishQuiz()}
-            className="group flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] py-4 text-sm font-black transition-all hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(108,92,231,0.3)] animate-pulse"
-          >
-            <Send size={18} />
-            <span className="tracking-wide">NỘP BÀI NGAY</span>
-          </button>
         </div>
       </header>
 
@@ -487,6 +525,43 @@ export default function QuizPage() {
                 <span>Giải thích chi tiết</span>
               </div>
               <p className="text-slate-300 text-sm leading-relaxed italic">{currentQ.explanation}</p>
+            </div>
+          )}
+
+          {/* AI Explanation Section */}
+          {(state.isFinished || state.reviewMode) && (
+            <div className="space-y-4">
+               {!aiExplanations[`${subjectId}_${state.currentIdx}`] ? (
+                 <button 
+                  onClick={() => handleAIExplain(state.currentIdx)}
+                  disabled={aiLoading[`${subjectId}_${state.currentIdx}`]}
+                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] text-white text-sm font-bold shadow-lg shadow-[#6c5ce7]/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+                 >
+                   {aiLoading[`${subjectId}_${state.currentIdx}`] ? (
+                     <Loader2 size={18} className="animate-spin" />
+                   ) : (
+                     <Sparkles size={18} />
+                   )}
+                   <span>{aiLoading[`${subjectId}_${state.currentIdx}`] ? "Đang suy nghĩ..." : "Giải thích bằng AI"}</span>
+                 </button>
+               ) : (
+                 <div className="p-6 rounded-3xl bg-[#6c5ce7]/5 border border-[#6c5ce7]/20 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                       <Brain size={80} className="text-[#6c5ce7]" />
+                    </div>
+                    <div className="flex items-center gap-2 text-[#a29bfe] text-xs font-bold uppercase tracking-widest relative z-10">
+                      <Sparkles size={14} />
+                      <span>Trợ lý ảo DNC Insight</span>
+                    </div>
+                    <div className="text-slate-300 text-sm leading-relaxed relative z-10 whitespace-pre-wrap">
+                       {aiExplanations[`${subjectId}_${state.currentIdx}`]}
+                    </div>
+                    <div className="pt-2 flex items-center gap-2 text-[10px] text-slate-500 italic relative z-10">
+                       <Info size={10} />
+                       <span>Nội dung được tạo bởi AI Gemini - Luôn kiểm tra lại kiến thức chính thống.</span>
+                    </div>
+                 </div>
+               )}
             </div>
           )}
         </div>

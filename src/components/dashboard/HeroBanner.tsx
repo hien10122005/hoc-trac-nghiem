@@ -71,7 +71,7 @@ export default function HeroBanner({ userName }: HeroBannerProps) {
       <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[#6c5ce7]/10 blur-[80px]" />
       <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-[#00cec9]/10 blur-[80px]" />
 
-      <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+      <div className="max-w-6xl mx-auto relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="space-y-4 text-center md:text-left">
           <motion.div
              initial={{ opacity: 0, x: -20 }}

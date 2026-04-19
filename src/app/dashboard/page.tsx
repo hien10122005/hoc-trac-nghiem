@@ -95,7 +95,7 @@ export default function DashboardPage() {
       <HeroBanner userName={(user as any)?.email?.split('@')[0] || "Học viên"} />
 
       {/* Mode Tabs */}
-      <div className="flex p-1.5 bg-white/5 border border-white/5 rounded-2xl w-fit mx-auto sm:mx-0">
+      <div className="flex p-1.5 bg-white/5 border border-white/5 rounded-2xl w-fit mx-auto">
           <button 
             onClick={() => { setViewMode('quiz'); setSelectedSubject(null); }}
             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
@@ -121,13 +121,15 @@ export default function DashboardPage() {
       </div>
 
       {selectedSubject && viewMode === 'library' ? (
-        <MaterialGrid 
-          subjectId={selectedSubject.id} 
-          subjectName={selectedSubject.name} 
-          onBack={() => setSelectedSubject(null)} 
-        />
+        <div className="max-w-6xl mx-auto">
+          <MaterialGrid 
+            subjectId={selectedSubject.id} 
+            subjectName={selectedSubject.name} 
+            onBack={() => setSelectedSubject(null)} 
+          />
+        </div>
       ) : (
-        <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500 max-w-5xl">
+        <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500 max-w-6xl mx-auto">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <h2 className="text-2xl font-bold tracking-tight text-white">
