@@ -5,7 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { 
   collection,
   doc,
-  getDoc
+  getDoc,
+  addDoc,
+  serverTimestamp
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -191,7 +193,7 @@ export default function QuizPage() {
     loadQuiz();
   }, [subjectId]);
 
-  const handleFinishQuiz = useCallback((currentState?: QuizState) => {
+  const handleFinishQuiz = useCallback(async (currentState?: QuizState) => {
     const s = currentState || state;
     if (s.isFinished) return;
 
@@ -209,6 +211,24 @@ export default function QuizPage() {
 
     const score = total > 0 ? Math.round((correct / total) * 10) : 0;
     
+    // Optimized Result Saving (1 Write Document = 1 Session)
+    if (user) {
+      try {
+        await addDoc(collection(db, "results"), {
+          userId: (user as any).uid,
+          userEmail: (user as any).email,
+          subjectId,
+          subjectName,
+          score,
+          correctCount: correct,
+          totalQuestions: total,
+          createdAt: serverTimestamp()
+        });
+      } catch (error) {
+        console.warn("Could not save result (likely permission issue), but result shown locally:", error);
+      }
+    }
+
     // Clean up
     localStorage.removeItem(`draft_quiz_${subjectId}`);
 
