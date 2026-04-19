@@ -114,8 +114,22 @@ export default function QuestionsPage() {
         throw new Error("File trống hoặc định dạng không hợp lệ!");
       }
 
-      const newQuestions: Question[] = [];
-      let addedCount = 0;
+      const parseCorrectAnswer = (val: any): number => {
+        if (typeof val === "string") {
+          const upperVal = val.trim().toUpperCase();
+          if (upperVal === "A") return 0;
+          if (upperVal === "B") return 1;
+          if (upperVal === "C") return 2;
+          if (upperVal === "D") return 3;
+        }
+        
+        const num = Number(val);
+        // Nếu là số 1-4 thì chuyển về 0-3, nếu là 0-3 thì giữ nguyên
+        if (num >= 1 && num <= 4) return num - 1;
+        if (num >= 0 && num <= 3) return num;
+        
+        return 0; // Mặc định là A nếu không nhận dạng được
+      };
 
       jsonData.forEach((row) => {
         if (!row.CauHoi || row.DapAnA === undefined || row.DapAnB === undefined || row.DapAnC === undefined || row.DapAnD === undefined || row.ViTriDapAnDung === undefined) {
@@ -127,7 +141,7 @@ export default function QuestionsPage() {
           subjectId: selectedSubjectId,
           content: String(row.CauHoi),
           options: [String(row.DapAnA), String(row.DapAnB), String(row.DapAnC), String(row.DapAnD)],
-          correctAnswer: Number(row.ViTriDapAnDung),
+          correctAnswer: parseCorrectAnswer(row.ViTriDapAnDung),
           explanation: row.GiaiThich ? String(row.GiaiThich) : "",
           createdAt: new Date().toISOString(),
         });
