@@ -14,8 +14,11 @@ import {
   ExternalLink, 
   FileCode,
   AlertCircle,
-  Loader2
+  Loader2,
+  Youtube,
+  Play
 } from "lucide-react";
+import VideoPlayerModal from "./VideoPlayerModal";
 
 interface Material {
   id: string;
@@ -35,6 +38,7 @@ interface MaterialGridProps {
 export default function MaterialGrid({ subjectId, subjectName, onBack }: MaterialGridProps) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedVideo, setSelectedVideo] = useState<Material | null>(null);
 
   useEffect(() => {
     if (!subjectId) return;
@@ -82,7 +86,7 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
             >
               <div className="flex items-center gap-4">
                 <div className="h-10 w-10 rounded-lg bg-white/5 flex items-center justify-center text-slate-400 group-hover:bg-[#00cec9]/10 group-hover:text-[#00cec9] transition-all">
-                  {m.type === 'pdf' ? <FileText size={20} /> : m.type === 'docx' ? <FileCode size={20} /> : <ExternalLink size={20} />}
+                  {m.type === 'pdf' ? <FileText size={20} /> : m.type === 'docx' ? <FileCode size={20} /> : m.type === 'youtube' ? <Youtube size={20} className="text-red-500" /> : <ExternalLink size={20} />}
                 </div>
                 <div>
                   <h3 className="font-bold text-white group-hover:text-[#00cec9] transition-colors">{m.title}</h3>
@@ -90,15 +94,25 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
                 </div>
               </div>
               
-              <a 
-                href={m.url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-slate-300 hover:bg-[#00cec9]/20 hover:text-white hover:border-[#00cec9]/30 transition-all text-sm font-medium w-full sm:w-auto justify-center"
-              >
-                <Download size={16} />
-                <span>Mở tài liệu</span>
-              </a>
+              {m.type === 'youtube' ? (
+                <button 
+                  onClick={() => setSelectedVideo(m)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all text-sm font-bold w-full sm:w-auto justify-center"
+                >
+                  <Play size={16} fill="currentColor" />
+                  <span>Xem Video</span>
+                </button>
+              ) : (
+                <a 
+                  href={m.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-slate-300 hover:bg-[#00cec9]/20 hover:text-white hover:border-[#00cec9]/30 transition-all text-sm font-medium w-full sm:w-auto justify-center"
+                >
+                  <Download size={16} />
+                  <span>Mở tài liệu</span>
+                </a>
+              )}
             </div>
           ))}
         </div>
@@ -109,6 +123,13 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
           <p className="text-slate-500 mt-1 text-sm">Vui lòng quay lại sau khi giáo viên bổ sung tài liệu cho môn này.</p>
         </div>
       )}
+      {/* Video Player Modal */}
+      <VideoPlayerModal 
+        isOpen={!!selectedVideo}
+        onClose={() => setSelectedVideo(null)}
+        videoUrl={selectedVideo?.url || ""}
+        videoTitle={selectedVideo?.title || ""}
+      />
     </div>
   );
 }
