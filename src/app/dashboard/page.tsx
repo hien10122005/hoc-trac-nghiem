@@ -29,7 +29,6 @@ interface Subject {
 export default function DashboardPage() {
   const [user, setUser] = useState<unknown>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'quiz' | 'library'>('quiz');
