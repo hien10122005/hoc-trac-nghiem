@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { auth, db } from "@/lib/firebase";
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   BarChart3,
@@ -75,19 +75,28 @@ export default function AnalyticsPage() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
+          // Chỉ dùng where(), bỏ orderBy() để không cần composite index
           const q = query(
             collection(db, "results"),
-            where("userId", "==", user.uid),
-            orderBy("createdAt", "asc")
+            where("userId", "==", user.uid)
           );
           const snapshot = await getDocs(q);
           const data = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           })) as QuizResult[];
+
+          // Sort phía client theo createdAt (ascending)
+          data.sort((a, b) => {
+            const dateA = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+            const dateB = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+            return dateA - dateB;
+          });
+
+          console.log(`Analytics: Loaded ${data.length} results for user ${user.uid}`);
           setResults(data);
-        } catch (err) {
-          console.error("Error fetching results:", err);
+        } catch (err: any) {
+          console.error("Analytics Error fetching results:", err.message, err.code, err);
         }
       }
       setLoading(false);
