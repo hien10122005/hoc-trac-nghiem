@@ -5,7 +5,7 @@ import {
   Plus, 
   Search, 
   FileText, 
-  Youtube,
+  Video,
   Trash2, 
   Edit3, 
   X, 
@@ -221,7 +221,7 @@ export default function MaterialsPage() {
               >
                 <div className="flex items-center gap-4 flex-1">
                   <div className="h-12 w-12 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:bg-[#6c5ce7]/10 group-hover:text-[#6c5ce7] transition-all">
-                    {m.type === 'pdf' ? <FileText size={24} /> : m.type === 'docx' ? <FileCode size={24} /> : m.type === 'youtube' ? <Youtube size={24} className="text-red-500" /> : <LinkIcon size={24} />}
+                    {m.type === 'pdf' ? <FileText size={24} /> : m.type === 'docx' ? <FileCode size={24} /> : m.type === 'youtube' ? <Video size={24} className="text-red-500" /> : <LinkIcon size={24} />}
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-white group-hover:text-[#aca3ff] transition-colors">{m.title}</h3>

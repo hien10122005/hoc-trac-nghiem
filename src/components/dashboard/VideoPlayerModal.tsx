@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Youtube, Maximize2, ExternalLink } from "lucide-react";
+import { X, Video, ExternalLink } from "lucide-react";
 import { getYoutubeId } from "@/lib/youtube";
 
 interface VideoPlayerModalProps {
@@ -39,7 +39,7 @@ export default function VideoPlayerModal({ isOpen, onClose, videoUrl, videoTitle
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/5 bg-white/[0.02]">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 shadow-inner">
-                  <Youtube size={22} />
+                  <Video size={22} />
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-lg font-bold text-white line-clamp-1">{videoTitle}</h3>
@@ -79,7 +79,7 @@ export default function VideoPlayerModal({ isOpen, onClose, videoUrl, videoTitle
               ) : (
                 <div className="text-center p-10">
                    <div className="h-16 w-16 mx-auto rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-4 animate-pulse">
-                      <Youtube size={32} />
+                      <Video size={32} />
                    </div>
                    <h4 className="text-lg font-bold text-white mb-2">Không thể phát video này</h4>
                    <p className="text-slate-500 text-sm max-w-xs">Đường dẫn YouTube không hợp lệ hoặc đã bị xóa.</p>

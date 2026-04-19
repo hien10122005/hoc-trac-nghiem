@@ -15,7 +15,7 @@ import {
   FileCode,
   AlertCircle,
   Loader2,
-  Youtube,
+  Video,
   Play
 } from "lucide-react";
 import VideoPlayerModal from "./VideoPlayerModal";
@@ -86,7 +86,7 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
             >
               <div className="flex items-center gap-4">
                 <div className="h-10 w-10 rounded-lg bg-white/5 flex items-center justify-center text-slate-400 group-hover:bg-[#00cec9]/10 group-hover:text-[#00cec9] transition-all">
-                  {m.type === 'pdf' ? <FileText size={20} /> : m.type === 'docx' ? <FileCode size={20} /> : m.type === 'youtube' ? <Youtube size={20} className="text-red-500" /> : <ExternalLink size={20} />}
+                  {m.type === 'pdf' ? <FileText size={20} /> : m.type === 'docx' ? <FileCode size={20} /> : m.type === 'youtube' ? <Video size={20} className="text-red-500" /> : <ExternalLink size={20} />}
                 </div>
                 <div>
                   <h3 className="font-bold text-white group-hover:text-[#00cec9] transition-colors">{m.title}</h3>
