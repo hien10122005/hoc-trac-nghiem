@@ -131,6 +131,9 @@ export default function QuestionsPage() {
         return 0; // Mặc định là A nếu không nhận dạng được
       };
 
+      const newQuestions: Question[] = [];
+      let addedCount = 0;
+
       jsonData.forEach((row) => {
         if (!row.CauHoi || row.DapAnA === undefined || row.DapAnB === undefined || row.DapAnC === undefined || row.DapAnD === undefined || row.ViTriDapAnDung === undefined) {
           return; // Skip missing data row
