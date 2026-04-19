@@ -35,8 +35,21 @@ export default function MigratePage() {
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Just basic check for now, assuming if they are here they might be admin
-        setIsAdmin(true); 
+        // Verify admin role from Firestore
+        try {
+          const { getDoc, doc } = await import("firebase/firestore");
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists() && userDoc.data().role === "admin") {
+            setIsAdmin(true);
+          } else {
+            console.error("User is not an admin");
+            toast.error("Bạn không có quyền truy cập trang này!");
+            router.push("/dashboard");
+          }
+        } catch (err) {
+          console.error("Auth check error:", err);
+          setIsAdmin(false);
+        }
       } else {
         router.push("/login");
       }
@@ -153,15 +166,31 @@ export default function MigratePage() {
         <ArrowLeft size={16} /> Quay lại trang quản trị
       </button>
 
-      <div className="rounded-3xl bg-red-500/10 border border-red-500/30 p-8 text-center space-y-4">
-        <div className="mx-auto h-16 w-16 bg-red-500/20 text-red-500 flex items-center justify-center rounded-full mb-4">
-          <AlertTriangle size={32} />
+      <div className="rounded-3xl bg-slate-900/50 border border-white/10 p-8 space-y-6">
+        {/* User Info for Debugging */}
+        <div className="flex items-center justify-between p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-xs">
+          <div className="space-y-1">
+            <p className="text-blue-400 font-bold uppercase tracking-wider">Tài khoản hiện tại</p>
+            <p className="text-slate-300">Email: {auth.currentUser?.email}</p>
+            <p className="text-slate-400 font-mono">UID: {auth.currentUser?.uid}</p>
+          </div>
+          <div className="text-right">
+            <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-bold">
+              ADMIN VERIFIED
+            </span>
+          </div>
         </div>
-        <h1 className="text-2xl font-bold text-white">Migration Công Cụ</h1>
-        <p className="text-slate-300">
-          Công cụ này sẽ chuyển <strong>toàn bộ</strong> dữ liệu từ cấu trúc "1 câu hỏi = 1 Document" sang "1 Môn học = 1 Document (chứa mảng câu hỏi)".
-          Dữ liệu ở collection cũ `questions` sẽ bị xóa hoàn toàn để dọn dẹp.
-        </p>
+
+        <div className="text-center space-y-4">
+          <div className="mx-auto h-16 w-16 bg-red-500/20 text-red-500 flex items-center justify-center rounded-full mb-4">
+            <AlertTriangle size={32} />
+          </div>
+          <h1 className="text-2xl font-bold text-white">Migration Công Cụ</h1>
+          <p className="text-slate-300 text-sm">
+            Công cụ này sẽ chuyển <strong>toàn bộ</strong> dữ liệu từ cấu trúc "1 câu hỏi = 1 Document" sang "1 Môn học = 1 Document (chứa mảng câu hỏi)".
+            Dữ liệu ở collection cũ `questions` sẽ bị xóa hoàn toàn để dọn dẹp.
+          </p>
+        </div>
 
         <button
           onClick={handleMigrate}
