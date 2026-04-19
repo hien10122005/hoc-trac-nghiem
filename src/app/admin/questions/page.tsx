@@ -60,6 +60,7 @@ export default function QuestionsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
@@ -205,8 +206,25 @@ export default function QuestionsPage() {
     fetchQuestions();
   }, [selectedSubjectId]);
 
-  // Handle Add Question
-  const handleAddQuestion = async (e: React.FormEvent) => {
+  const handleOpenEditModal = (q: Question) => {
+    setEditingQuestionId(q.id);
+    setContent(q.content);
+    setOptions([...q.options]);
+    setCorrectAnswer(q.correctAnswer);
+    setExplanation(q.explanation || "");
+    setIsModalOpen(true);
+  };
+
+  const resetForm = () => {
+    setContent("");
+    setOptions(["", "", "", ""]);
+    setCorrectAnswer(0);
+    setExplanation("");
+    setEditingQuestionId(null);
+  };
+
+  // Handle Submit (Add or Edit)
+  const handleSubmitQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSubjectId || !content.trim()) {
       toast.error("Vui lòng chọn môn học và nhập nội dung câu hỏi.");
@@ -218,38 +236,53 @@ export default function QuestionsPage() {
     }
 
     setIsSubmitting(true);
-    const toastId = toast.loading("Đang lưu câu hỏi...");
+    const toastId = toast.loading(editingQuestionId ? "Đang cập nhật câu hỏi..." : "Đang thêm câu hỏi...");
     try {
-      const newQuestion: Question = {
-        id: crypto.randomUUID(),
-        subjectId: selectedSubjectId,
-        content,
-        options,
-        correctAnswer,
-        explanation,
-        createdAt: new Date().toISOString(),
-      };
-
       const docRef = doc(db, "quizzes", selectedSubjectId);
       const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const existingQs = docSnap.data().questions || [];
-        await updateDoc(docRef, { questions: [...existingQs, newQuestion], updatedAt: serverTimestamp() });
-      } else {
-        await setDoc(docRef, { questions: [newQuestion], updatedAt: serverTimestamp() });
-      }
       
-      setQuestions(prev => [...prev, newQuestion]);
+      let newQuestionsList: Question[] = [];
+      
+      if (editingQuestionId) {
+        // Edit mode
+        newQuestionsList = questions.map(q => 
+          q.id === editingQuestionId 
+            ? { ...q, content, options, correctAnswer, explanation } 
+            : q
+        );
+      } else {
+        // Add mode
+        const newQuestion: Question = {
+          id: crypto.randomUUID(),
+          subjectId: selectedSubjectId,
+          content,
+          options,
+          correctAnswer,
+          explanation,
+          createdAt: new Date().toISOString(),
+        };
+        
+        if (docSnap.exists()) {
+          const existingQs = docSnap.data().questions || [];
+          newQuestionsList = [...existingQs, newQuestion];
+        } else {
+          newQuestionsList = [newQuestion];
+        }
+      }
+
+      await setDoc(docRef, { 
+        questions: newQuestionsList, 
+        updatedAt: serverTimestamp() 
+      }, { merge: true });
+      
+      setQuestions(newQuestionsList);
       
       // Reset & Close
-      setContent("");
-      setOptions(["", "", "", ""]);
-      setCorrectAnswer(0);
-      setExplanation("");
+      resetForm();
       setIsModalOpen(false);
-      toast.success("Thêm câu hỏi thành công!", { id: toastId });
+      toast.success(editingQuestionId ? "Cập nhật thành công!" : "Thêm câu hỏi thành công!", { id: toastId });
     } catch (error) {
-      console.error("Error adding question:", error);
+      console.error("Error submitting question:", error);
       toast.error("Đã có lỗi xảy ra khi lưu câu hỏi.", { id: toastId });
     } finally {
       setIsSubmitting(false);
@@ -323,6 +356,7 @@ export default function QuestionsPage() {
                 toast.error("Vui lòng chọn môn học trước khi thêm câu hỏi.");
                 return;
               }
+              resetForm();
               setIsModalOpen(true);
             }}
             className="group flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#6c5ce7] to-[#5b4bc4] px-5 py-3 text-sm font-bold text-white transition-all hover:scale-105 active:scale-95 shadow-lg shadow-[#6c5ce7]/30"
@@ -398,7 +432,10 @@ export default function QuestionsPage() {
                     <h4 className="text-lg font-bold text-white leading-relaxed">{q.content}</h4>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-lg transition-all">
+                    <button 
+                      onClick={() => handleOpenEditModal(q)}
+                      className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+                    >
                       <Edit3 size={18} />
                     </button>
                     <button 
@@ -469,19 +506,24 @@ export default function QuestionsPage() {
                   <Plus size={24} />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">Thêm câu hỏi mới</h3>
+                  <h3 className="text-xl font-bold text-white">
+                    {editingQuestionId ? "Chỉnh sửa câu hỏi" : "Thêm câu hỏi mới"}
+                  </h3>
                   <p className="text-xs text-slate-500">Môn học: <span className="text-[#6c5ce7] font-semibold">{subjects.find(s => s.id === selectedSubjectId)?.name}</span></p>
                 </div>
               </div>
               <button 
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  resetForm();
+                }}
                 className="rounded-xl p-2 hover:bg-white/5 text-slate-400 transition-colors"
               >
                 <X size={24} />
               </button>
             </div>
 
-            <form onSubmit={handleAddQuestion} className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+            <form onSubmit={handleSubmitQuestion} className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
               <div className="space-y-6">
                 {/* Question Content */}
                 <div>
@@ -566,7 +608,7 @@ export default function QuestionsPage() {
                   className="flex-[2] rounded-xl bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] py-4 text-sm font-bold text-white shadow-lg shadow-[#6c5ce7]/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Database size={18} />}
-                  <span>{isSubmitting ? "Đang lưu câu hỏi..." : "Xác nhận lưu câu hỏi"}</span>
+                  <span>{isSubmitting ? "Đang lưu..." : editingQuestionId ? "Lưu thay đổi" : "Xác nhận lưu câu hỏi"}</span>
                 </button>
               </div>
             </form>
