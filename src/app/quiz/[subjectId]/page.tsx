@@ -3,12 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  addDoc,
-  serverTimestamp,
+  collection,
   doc,
   getDoc
 } from "firebase/firestore";
@@ -196,58 +191,26 @@ export default function QuizPage() {
     loadQuiz();
   }, [subjectId]);
 
-  const handleFinishQuiz = useCallback(async (currentState?: QuizState) => {
+  const handleFinishQuiz = useCallback((currentState?: QuizState) => {
     const s = currentState || state;
     if (s.isFinished) return;
 
-    if (!navigator.onLine) {
-        toast.error("Không có kết nối mạng. Vui lòng kiểm tra lại Wi-Fi trước khi nộp bài để tránh mất dữ liệu.");
-        return;
-    }
-
     if (timerRef.current) clearInterval(timerRef.current);
 
-    // Calculate score & identify incorrect questions
+    // Calculate score
     let correct = 0;
-    const incorrectQuestions: unknown[] = [];
+    const total = s.questions.length;
 
     s.userAnswers.forEach((ans, idx) => {
-      const q = s.questions[idx];
-      if (ans === q.correctAnswer) {
+      if (ans === s.questions[idx].correctAnswer) {
         correct++;
-      } else {
-        incorrectQuestions.push({
-          content: q.content,
-          options: q.options,
-          correctAnswer: q.correctAnswer,
-          userAnswer: ans,
-          explanation: q.explanation
-        });
       }
     });
 
-    const score = Math.round((correct / s.questions.length) * 10);
+    const score = total > 0 ? Math.round((correct / total) * 10) : 0;
     
-    // Save to Firestore
-    try {
-      if (user) {
-        const u = user as { uid: string; email: string };
-        await addDoc(collection(db, "results"), {
-          userId: u.uid,
-          userEmail: u.email,
-          subjectId,
-          subjectName,
-          score,
-          correctAnswers: correct,
-          totalQuestions: s.questions.length,
-          incorrectQuestions, // Lưu lại để AI phân tích
-          createdAt: serverTimestamp()
-        });
-      }
-      localStorage.removeItem(`draft_quiz_${subjectId}`);
-    } catch (error) {
-      console.error("Error saving results:", error);
-    }
+    // Clean up
+    localStorage.removeItem(`draft_quiz_${subjectId}`);
 
     setState(prev => ({
       ...prev,
@@ -256,7 +219,8 @@ export default function QuizPage() {
       score: score
     }));
 
-    if (score >= 8 || correct / s.questions.length >= 0.8) {
+    // Success feedback
+    if (total > 0 && (score >= 8 || correct / total >= 0.8)) {
       toast.success("Chúc mừng! Bạn đã đạt thành tích xuất sắc!", {
           icon: '🎉',
           style: {
