@@ -15,10 +15,10 @@ interface SubjectGridProps {
   subjects: Subject[];
   loading: boolean;
   weakestSubjectId?: string;
+  onSelect?: (id: string, name: string) => void;
 }
 
-export default function SubjectGrid({ subjects, loading, weakestSubjectId }: SubjectGridProps) {
-  const router = useRouter();
+export default function SubjectGrid({ subjects, loading, weakestSubjectId, onSelect }: SubjectGridProps) {
 
   if (loading) {
     return (
@@ -41,7 +41,7 @@ export default function SubjectGrid({ subjects, loading, weakestSubjectId }: Sub
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: Math.max(0, idx * 0.15), type: "spring", stiffness: 100 }}
-            onClick={() => router.push(`/quiz/${item.id}`)}
+            onClick={() => onSelect?.(item.id, item.name)}
             className={`group relative p-8 rounded-[2rem] border transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-xl flex flex-col justify-between h-64 hover:scale-[1.05] hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(108,92,231,0.2)] ${
               isWeakest 
                 ? "bg-red-500/5 border-red-500/20 shadow-[0_0_40px_rgba(239,68,68,0.1)] hover:border-red-500/50" 

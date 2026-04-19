@@ -10,11 +10,12 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, BookOpen, GraduationCap } from "lucide-react";
 
 // Components
 import HeroBanner from "@/components/dashboard/HeroBanner";
 import SubjectGrid from "@/components/dashboard/SubjectGrid";
+import MaterialGrid from "@/components/dashboard/MaterialGrid";
 
 interface Subject {
   id: string;
@@ -31,6 +32,8 @@ export default function DashboardPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'quiz' | 'library'>('quiz');
+  const [selectedSubject, setSelectedSubject] = useState<{id: string, name: string} | null>(null);
   const router = useRouter();
 
   // Auth check
@@ -69,6 +72,14 @@ export default function DashboardPage() {
     };
   }, [user]);
 
+  const handleSubjectSelect = (id: string, name: string) => {
+    if (viewMode === 'quiz') {
+      router.push(`/quiz/${id}`);
+    } else {
+      setSelectedSubject({ id, name });
+    }
+  };
+
 
 
   if (loading) {
@@ -91,24 +102,62 @@ export default function DashboardPage() {
         {/* TOP: Hero Banner */}
         <HeroBanner userName={(user as { email?: string })?.email?.split('@')[0] || "Học viên"} streak={0} />
 
-        {/* MAIN CONTENT: Subjects */}
+        {/* MAIN CONTENT: Subjects or Materials */}
         <div className="space-y-10 max-w-5xl mx-auto">
           
-          {/* Subjects Grid */}
-          <section className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <h2 className="text-2xl font-bold tracking-tight text-white">Cửa hàng môn học</h2>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Chọn thử thách tiếp theo</p>
-              </div>
-              <div className="h-px flex-1 mx-8 bg-gradient-to-r from-white/10 to-transparent" />
-            </div>
-            
-            <SubjectGrid 
-              subjects={subjects} 
-              loading={subjectsLoading} 
+          {/* Mode Tabs */}
+          <div className="flex p-1.5 bg-white/5 border border-white/5 rounded-2xl w-fit mx-auto sm:mx-0">
+             <button 
+                onClick={() => { setViewMode('quiz'); setSelectedSubject(null); }}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  viewMode === 'quiz' 
+                    ? "bg-[#6c5ce7] text-white shadow-lg shadow-[#6c5ce7]/20" 
+                    : "text-slate-400 hover:text-white"
+                }`}
+             >
+                <GraduationCap size={18} />
+                <span>Ôn luyện</span>
+             </button>
+             <button 
+                onClick={() => setViewMode('library')}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  viewMode === 'library' 
+                    ? "bg-[#00cec9] text-white shadow-lg shadow-[#00cec9]/20" 
+                    : "text-slate-400 hover:text-white"
+                }`}
+             >
+                <BookOpen size={18} />
+                <span>Thư viện tài liệu</span>
+             </button>
+          </div>
+
+          {selectedSubject && viewMode === 'library' ? (
+            <MaterialGrid 
+              subjectId={selectedSubject.id} 
+              subjectName={selectedSubject.name} 
+              onBack={() => setSelectedSubject(null)} 
             />
-          </section>
+          ) : (
+            <section className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-bold tracking-tight text-white">
+                    {viewMode === 'quiz' ? "Cửa hàng môn học" : "Thư viện chuyên đề"}
+                  </h2>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                    {viewMode === 'quiz' ? "Chọn thử thách tiếp theo" : "Khám phá kiến thức mới"}
+                  </p>
+                </div>
+                <div className="h-px flex-1 mx-8 bg-gradient-to-r from-white/10 to-transparent" />
+              </div>
+              
+              <SubjectGrid 
+                subjects={subjects} 
+                loading={subjectsLoading} 
+                onSelect={handleSubjectSelect}
+              />
+            </section>
+          )}
         </div>
       </div>
 
