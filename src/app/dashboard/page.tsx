@@ -92,7 +92,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-10">
       {/* TOP: Hero Banner */}
-      <HeroBanner userName={(user as any)?.email?.split('@')[0] || "Học viên"} streak={0} />
+      <HeroBanner userName={(user as any)?.email?.split('@')[0] || "Học viên"} />
 
       {/* Mode Tabs */}
       <div className="flex p-1.5 bg-white/5 border border-white/5 rounded-2xl w-fit mx-auto sm:mx-0">

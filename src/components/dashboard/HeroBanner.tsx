@@ -23,10 +23,9 @@ const MOTIVATIONAL_QUOTES = [
 
 interface HeroBannerProps {
   userName: string;
-  streak: number;
 }
 
-export default function HeroBanner({ userName, streak }: HeroBannerProps) {
+export default function HeroBanner({ userName }: HeroBannerProps) {
   const [quote, setQuote] = useState("");
   const router = useRouter();
 
@@ -80,7 +79,7 @@ export default function HeroBanner({ userName, streak }: HeroBannerProps) {
              transition={{ delay: 0.2 }}
              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[#aca3ff] text-xs font-bold uppercase tracking-widest"
           >
-            <span>Bảng điều khiển học viên</span>
+            <span>Cổng thông tin học tập DNC</span>
           </motion.div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
             Chào mừng, <span className="bg-gradient-to-r from-[#6c5ce7] via-[#a29bfe] to-[#00cec9] bg-clip-text text-transparent">{userName}</span>!
@@ -93,12 +92,18 @@ export default function HeroBanner({ userName, streak }: HeroBannerProps) {
 
         <motion.div 
           whileHover={{ scale: 1.05 }}
-          className="shrink-0 flex flex-col items-center justify-center p-8 rounded-[2rem] bg-gradient-to-br from-[#ff7675]/10 to-[#fab1a0]/10 border border-[#ff7675]/20 shadow-xl relative group"
+          className="shrink-0 grid grid-cols-2 gap-3 p-6 rounded-[2rem] bg-white/5 border border-white/5 shadow-xl relative group overflow-hidden"
         >
-          <div className="absolute inset-0 bg-[#ff7675]/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-[2rem] blur-xl" />
-          <Flame size={48} className="text-[#ff7675] animate-pulse mb-2" />
-          <span className="text-4xl font-black text-white">{streak}</span>
-          <span className="text-[10px] font-bold text-[#ff7675] uppercase tracking-widest mt-1">Chuỗi ngày (Streak)</span>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#6c5ce7]/5 to-[#00cec9]/5 opacity-50 group-hover:opacity-100 transition-opacity" />
+          
+          <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center justify-center space-y-1">
+             <span className="text-2xl font-black text-white">Quiz</span>
+             <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest text-center">Ôn luyện trắc nghiệm</span>
+          </div>
+          <div className="p-4 rounded-2xl bg-[#6c5ce7]/10 border border-[#6c5ce7]/20 flex flex-col items-center justify-center space-y-1">
+             <span className="text-2xl font-black text-[#6c5ce7]">Library</span>
+             <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest text-center">Kho tài liệu số</span>
+          </div>
         </motion.div>
       </div>
     </motion.div>

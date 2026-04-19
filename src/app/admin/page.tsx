@@ -97,11 +97,11 @@ export default function AdminDashboard() {
 
     async function fetchCounts() {
       try {
-        const [subCount, quizzesSnap, userCount, resCount] = await Promise.all([
+        const [subCount, quizzesSnap, userCount, materialsCount] = await Promise.all([
           getCountFromServer(collection(db, "subjects")),
           getDocs(collection(db, "quizzes")),
           getCountFromServer(query(collection(db, "users"), where("role", "==", "student"))),
-          getCountFromServer(collection(db, "results"))
+          getCountFromServer(collection(db, "materials"))
         ]);
 
         let totalQuestions = 0;
@@ -113,7 +113,7 @@ export default function AdminDashboard() {
           subjects: subCount.data().count,
           questions: totalQuestions,
           students: userCount.data().count,
-          results: resCount.data().count
+          results: materialsCount.data().count // Using results field for materials count
         });
       } catch (error) {
         console.error("Error fetching counts:", error);
@@ -122,16 +122,16 @@ export default function AdminDashboard() {
 
     fetchCounts();
 
-    // Fetch Recent Activities (Real-time)
-    const qResults = query(collection(db, "results"), orderBy("createdAt", "desc"), limit(5));
+    // Fetch Recently Added (Real-time) - Focus on Materials and Users
+    const qMaterials = query(collection(db, "materials"), orderBy("createdAt", "desc"), limit(5));
     const qUsers = query(collection(db, "users"), where("role", "==", "student"), orderBy("createdAt", "desc"), limit(5));
 
-    let quizActivities: RecentActivity[] = [];
+    let recentMaterials: RecentActivity[] = [];
     let userActivities: RecentActivity[] = [];
 
     const updateMergedActivities = () => {
       setActivities(() => {
-        const merged = [...quizActivities, ...userActivities]
+        const merged = [...recentMaterials, ...userActivities]
           .filter(a => a.createdAt)
           .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
           .slice(0, 5);
@@ -140,14 +140,14 @@ export default function AdminDashboard() {
       setIsLoading(false);
     };
 
-    const unsubResults = onSnapshot(qResults, (snapshot) => {
-      quizActivities = snapshot.docs.map(snap => {
-        const data = snap.data() as FirestoreResultData;
+    const unsubMaterials = onSnapshot(qMaterials, (snapshot) => {
+      recentMaterials = snapshot.docs.map(snap => {
+        const data = snap.data() as any;
         return {
           id: snap.id,
-          type: "quiz" as const,
-          user: data.userEmail?.split('@')[0] || "Học viên",
-          target: data.subjectName,
+          type: "quiz" as const, // Using quiz type for materials to reuse UI
+          user: "Hệ thống",
+          target: data.title || "Tài liệu mới",
           createdAt: data.createdAt
         };
       });
@@ -168,7 +168,7 @@ export default function AdminDashboard() {
     });
 
     return () => {
-      unsubResults();
+      unsubMaterials();
       unsubUsers();
     };
   }, [isAdmin]);
@@ -199,29 +199,29 @@ export default function AdminDashboard() {
       label: "Tổng môn học", 
       value: stats.subjects, 
       icon: BookOpen, 
-      color: "from-blue-500 to-cyan-400",
+      color: "from-[#6c5ce7] to-[#a29bfe]",
       trend: "Hoạt động" 
     },
     { 
       label: "Ngân hàng câu hỏi", 
       value: stats.questions.toLocaleString(), 
       icon: Database, 
-      color: "from-purple-500 to-pink-500",
-      trend: "Đang lưu trữ" 
+      color: "from-[#00cec9] to-[#81ecec]",
+      trend: "Dữ liệu" 
+    },
+    { 
+      label: "Tài liệu thư viện", 
+      value: stats.results, // Now contains materials count
+      icon: FileText, 
+      color: "from-amber-500 to-orange-400",
+      trend: "Tài nguyên" 
     },
     { 
       label: "Tổng học viên", 
       value: stats.students, 
       icon: Users, 
-      color: "from-emerald-500 to-teal-400",
+      color: "from-blue-500 to-indigo-400",
       trend: "Thành viên" 
-    },
-    { 
-      label: "Tổng lượt thi", 
-      value: stats.results.toLocaleString(), 
-      icon: Activity, 
-      color: "from-orange-500 to-yellow-400",
-      trend: "Lượt làm bài" 
     },
   ];
 

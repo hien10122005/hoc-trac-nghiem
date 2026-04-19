@@ -65,58 +65,69 @@ export default function AdminLayout({
       <aside 
         className={`${
           isSidebarOpen ? "w-64" : "w-20"
-        } fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/5 bg-[#10101f]/80 backdrop-blur-xl transition-all duration-300 ease-in-out`}
+        } fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/5 bg-[#0d0d17]/90 backdrop-blur-2xl transition-all duration-500 ease-in-out`}
       >
-        <div className="flex h-20 items-center justify-between px-6">
-          {isSidebarOpen && (
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#6c5ce7] to-[#00cec9] flex items-center justify-center shadow-lg shadow-[#6c5ce7]/20">
-                <span className="text-white font-bold text-lg">D</span>
+        <div className="flex h-24 items-center justify-between px-6">
+          {isSidebarOpen ? (
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#6c5ce7] to-[#00cec9] flex items-center justify-center shadow-lg shadow-[#6c5ce7]/20 rotate-3">
+                <span className="text-white font-black text-xl">D</span>
               </div>
-              <span className="text-lg font-bold tracking-tight text-white uppercase">
-                Admin <span className="text-[#6c5ce7]">DNC</span>
-              </span>
+              <div className="flex flex-col">
+                <span className="text-sm font-black tracking-widest text-white uppercase leading-none">
+                  Admin <span className="text-[#6c5ce7]">DNC</span>
+                </span>
+                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">Management Hub</span>
+              </div>
             </div>
-          )}
-          {!isSidebarOpen && (
-            <div className="mx-auto h-8 w-8 rounded-lg bg-gradient-to-br from-[#6c5ce7] to-[#00cec9] flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-lg">D</span>
+          ) : (
+            <div className="mx-auto h-10 w-10 rounded-2xl bg-gradient-to-br from-[#6c5ce7] to-[#00cec9] flex items-center justify-center shadow-lg">
+              <span className="text-white font-black text-xl">D</span>
             </div>
           )}
         </div>
 
-        <nav className="flex-1 space-y-1.5 px-3 py-6">
+        <nav className="flex-1 space-y-1 px-4 py-6">
+          <div className="mb-4 px-2">
+             <p className={`text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] ${!isSidebarOpen && "hidden"}`}>Hệ thống</p>
+          </div>
           {menuItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-4 rounded-xl px-3 py-3 transition-all duration-300 group ${
+                className={`flex items-center gap-4 rounded-2xl px-3 py-3.5 transition-all duration-300 group relative ${
                   isActive 
-                    ? "bg-[#6c5ce7]/10 text-[#6c5ce7] shadow-[inset_0_0_10px_rgba(108,92,231,0.05)]" 
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    ? "bg-[#6c5ce7]/10 text-white" 
+                    : "text-slate-400 hover:bg-white/[0.03] hover:text-white"
                 }`}
               >
-                <div className={`${isActive ? "text-[#6c5ce7]" : "group-hover:scale-110 transition-transform"}`}>
+                {isActive && (
+                  <motion.div 
+                    layoutId="admin-nav-glow"
+                    className="absolute inset-0 bg-gradient-to-r from-[#6c5ce7]/20 to-transparent rounded-2xl -z-10"
+                  />
+                )}
+                <div className={`${isActive ? "text-[#6c5ce7]" : "group-hover:scale-110 group-hover:text-[#6c5ce7] transition-all"} shrink-0`}>
                   {getIcon(item)}
                 </div>
-                {isSidebarOpen && <span className="text-sm font-medium whitespace-nowrap">{item.name}</span>}
+                {isSidebarOpen && <span className={`text-sm font-semibold whitespace-nowrap tracking-tight transition-colors ${isActive ? "text-white" : "text-slate-400"}`}>{item.name}</span>}
                 {isActive && isSidebarOpen && (
-                  <div className="ml-auto h-1.5 w-1.5 rounded-full bg-[#6c5ce7] shadow-[0_0_8px_#6c5ce7]" />
+                  <div className="ml-auto h-1.5 w-1.5 rounded-full bg-[#6c5ce7] shadow-[0_0_12px_#6c5ce7]" />
                 )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/5 bg-[#0a0a14]/40">
+        <div className="p-6 border-t border-white/5 bg-white/[0.01]">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-4 rounded-xl px-3 py-3 text-slate-500 transition-all hover:bg-red-500/10 hover:text-red-400 group"
+            className="flex w-full items-center gap-4 rounded-2xl px-3 py-3.5 text-slate-500 transition-all hover:bg-red-500/10 hover:text-red-400 group"
           >
             <LogOut size={22} className="group-hover:-translate-x-1 transition-transform" />
-            {isSidebarOpen && <span className="text-sm font-medium whitespace-nowrap">Đăng xuất</span>}
+            {isSidebarOpen && <span className="text-sm font-semibold whitespace-nowrap">Đăng xuất</span>}
           </button>
         </div>
       </aside>
