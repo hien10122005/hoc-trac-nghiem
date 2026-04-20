@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import * as mammoth from "mammoth";
 import { 
   Plus, 
   Search, 
@@ -70,7 +71,9 @@ export default function MaterialsPage() {
   const [type, setType] = useState("link");
   const [content, setContent] = useState(""); // Markdown content
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isParsingWord, setIsParsingWord] = useState(false);
   const [activeTab, setActiveTab] = useState<MaterialCategory>('all');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch subjects and materials
   useEffect(() => {
@@ -152,6 +155,58 @@ export default function MaterialsPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleWordUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.docx')) {
+      toast.error("Vui lòng chọn file định dạng .docx!");
+      return;
+    }
+
+    setIsParsingWord(true);
+    const reader = new FileReader();
+
+    reader.onload = async (event) => {
+      try {
+        const arrayBuffer = event.target?.result as ArrayBuffer;
+        
+        // mammoth.convertToMarkdown converts docx to Markdown
+        const result = await mammoth.convertToMarkdown({ arrayBuffer });
+        
+        if (result.value) {
+          setContent(result.value);
+          
+          // Auto-set title if empty
+          if (!title.trim()) {
+            // Extract first line as title if it looks like a header
+            const firstLine = result.value.split('\n')[0].replace(/^#+\s*/, '').trim();
+            if (firstLine) setTitle(firstLine);
+          }
+          
+          toast.success("Đã chuyển đổi file Word thành công!");
+        } else {
+          toast.error("Không tìm thấy nội dung trong file Word.");
+        }
+        
+        // Clear value for next selection
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      } catch (err: any) {
+        console.error("Word conversion error:", err);
+        toast.error("Lỗi khi đọc file Word: " + (err.message || "Unknown error"));
+      } finally {
+        setIsParsingWord(false);
+      }
+    };
+
+    reader.onerror = () => {
+      toast.error("Lỗi khi đọc file!");
+      setIsParsingWord(false);
+    };
+
+    reader.readAsArrayBuffer(file);
   };
 
   const handleDelete = async (id: string) => {
@@ -399,7 +454,25 @@ export default function MaterialsPage() {
                   </div>
                 ) : (
                   <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2 px-1">Nội dung bài viết (Markdown) <span className="text-red-500">*</span></label>
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block">Nội dung bài viết (Markdown) <span className="text-red-500">*</span></label>
+                      <button 
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isParsingWord}
+                        className="flex items-center gap-1.5 text-[10px] font-bold text-[#00cec9] uppercase tracking-tighter hover:text-white transition-colors disabled:opacity-50"
+                      >
+                        {isParsingWord ? <Loader2 size={12} className="animate-spin" /> : <FileCode size={12} />}
+                        <span>{isParsingWord ? "Đang xử lý..." : "Nhập từ file Word (.docx)"}</span>
+                      </button>
+                      <input 
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept=".docx"
+                        onChange={handleWordUpload}
+                      />
+                    </div>
                     <textarea 
                       required
                       placeholder="# Tiêu đề bài viết... &#10;&#10;Nội dung bài đọc hỗ trợ Markdown tại đây..."
