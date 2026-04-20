@@ -20,7 +20,6 @@ import {
   Download,
   AlertCircle,
   BookOpen,
-  BookOpen,
   FileText as FileIcon,
   PlayCircle,
   BrainCircuit

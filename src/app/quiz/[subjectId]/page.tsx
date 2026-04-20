@@ -35,7 +35,8 @@ import {
   Wifi,
   Sparkles,
   Brain,
-  Bookmark
+  Bookmark,
+  Lock
 } from "lucide-react";
 import toast from "react-hot-toast";
 import confetti from "canvas-confetti";
@@ -43,7 +44,6 @@ import confetti from "canvas-confetti";
 import { Question } from "@/types/question";
 import { useBloomProgress } from "@/hooks/useBloomProgress";
 import { FirestoreUserData } from "@/types/user";
-import { Lock } from "lucide-react";
 
 interface QuizState {
   questions: Question[]; // This will store the filtered questions for the active level
@@ -699,9 +699,17 @@ export default function QuizPage() {
                           <span className="text-[9px] font-bold text-slate-500">{lvl.correct}/{lvl.total > 0 ? lvl.total : "?"}</span>
                           <span className="text-[9px] font-bold text-[#00cec9]">{Math.round(lvl.percentage)}%</span>
                       </div>
-                      <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
                           <div 
-                              className={`h-full transition-all duration-1000 ${isActive ? "bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe]" : "bg-slate-700"}`}
+                              className={`h-full transition-all duration-1000 ${
+                                isActive 
+                                  ? "bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] shadow-[0_0_10px_rgba(108,92,231,0.5)]" 
+                                  : lvl.percentage >= 80 
+                                    ? "bg-emerald-500" 
+                                    : lvl.percentage >= 40 
+                                      ? "bg-yellow-500/80" 
+                                      : "bg-red-500/60"
+                              }`}
                               style={{ width: `${Math.min(lvl.percentage, 100)}%` }}
                           />
                       </div>
