@@ -83,6 +83,7 @@ export default function QuizPage() {
 
   const [aiExplanations, setAiExplanations] = useState<Record<string, string>>({});
   const [isExplaining, setIsExplaining] = useState(false);
+  const isExplainingRef = useRef(false);
   const [savedQuestionIds, setSavedQuestionIds] = useState<Set<string>>(new Set());
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -382,14 +383,19 @@ export default function QuizPage() {
   };
 
   const handleAIExplain = async (qIdx: number) => {
-    if (isExplaining) return; // Chặn double click ngay lập tức
+    // 1. Chặn click tức thì ở tầng Ref (Synchronous)
+    if (isExplainingRef.current) return; 
+    
+    // 2. Chặn click ở tầng State (Dùng cho UI re-render)
+    if (isExplaining) return; 
     
     const question = state.questions[qIdx];
     const qKey = `${subjectId}_${qIdx}`;
     
     if (aiExplanations[qKey]) return;
 
-    setIsExplaining(true); // 1. Bật trạng thái loading NGAY LẬP TỨC
+    isExplainingRef.current = true; // Khóa Ref ngay lập tức
+    setIsExplaining(true); // Bật trạng thái loading cho UI
     try {
       const res = await fetch("/api/ai/explain", {
         method: "POST",
@@ -417,7 +423,8 @@ export default function QuizPage() {
     } catch (_err) {
       toast.error("Có lỗi kết nối đến AI Tutor.");
     } finally {
-      setIsExplaining(false); // 2. LUÔN LUÔN tắt loading dù thành công hay thất bại
+      isExplainingRef.current = false; // Mở khóa Ref
+      setIsExplaining(false); // Tắt loading UI
     }
   };
 

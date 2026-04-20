@@ -15,9 +15,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Bạn cần hoàn thành ít nhất 1 bài thi để AI có dữ liệu phân tích" }, { status: 400 });
     }
 
-    // Model Lite để xử lý nhanh nhất
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
     const aiPrompt = `
       Bạn là QIU AI Tutor - Gia sư thông minh của hệ thống QIU (Nền tảng Học tập Thông minh). 
       Dưới đây là các câu hỏi trắc nghiệm mà học viên của bạn đã làm sai:
@@ -39,33 +36,33 @@ export async function POST(req: Request) {
       Lưu ý: "correctAnswer" là số nguyên từ 0-3 tương ứng với vị trí đáp án đúng trong mảng options.
     `;
 
-    console.log("Calling Gemini API for AI Smart Review. Total questions to analyze:", wrongQuestions.length);
-    let result;
-    try {
-      result = await model.generateContent(aiPrompt);
-    } catch (err: unknown) {
-      const apiError = err as { message?: string };
-      console.error("Lỗi từ Gemini API:", apiError);
-      return NextResponse.json({ error: "Lỗi kết nối Gemini API bị từ chối: " + (apiError.message || "Unknown error") }, { status: 502 });
+    // Chiến lược Fallback Model
+    const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+    let lastError: any = null;
+
+    for (const modelName of models) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(aiPrompt);
+        const response = await result.response;
+        const text = response.text();
+        
+        const jsonStr = text.replace(/```json|```/g, "").trim();
+        const data = JSON.parse(jsonStr);
+        return NextResponse.json(data);
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Model ${modelName} failed in generate, trying next...`);
+        if (!err.message?.includes("429") && !err.message?.includes("404")) {
+          break;
+        }
+      }
     }
 
-    const response = await result.response;
-    const text = response.text();
-    
-    // Clean potential markdown if AI returns it despite instructions
-    const jsonStr = text.replace(/```json|```/g, "").trim();
-    
-    try {
-      const data = JSON.parse(jsonStr);
-      return NextResponse.json(data);
-    } catch {
-      console.error("JSON Parse Error:", text);
-      return NextResponse.json({ error: "Không thể xử lý phản hồi từ AI" }, { status: 500 });
-    }
+    return NextResponse.json({ error: "Lỗi AI Smart Review (Fallback failed): " + (lastError?.message || "Unknown error") }, { status: 502 });
 
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Lỗi server";
+  } catch (error: any) {
     console.error("AI API Error:", error);
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Lỗi server" }, { status: 500 });
   }
 }
