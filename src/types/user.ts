@@ -7,6 +7,7 @@ export interface SubjectStats {
   totalQuestions: number;
   totalScoreSum: number;
   bestScore: number;
+  bloomLevelStats?: Record<number, { correct: number; total: number }>;
   lastUpdatedAt?: Timestamp;
 }
 

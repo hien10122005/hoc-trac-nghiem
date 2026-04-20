@@ -49,6 +49,7 @@ interface Question {
   options: string[];
   correctAnswer: number;
   explanation: string;
+  bloomLevel: 1 | 2 | 3 | 4;
   createdAt: unknown;
 }
 
@@ -70,11 +71,21 @@ export default function QuestionsPage() {
   const [options, setOptions] = useState(["", "", "", ""]);
   const [correctAnswer, setCorrectAnswer] = useState(0);
   const [explanation, setExplanation] = useState("");
+  const [bloomLevel, setBloomLevel] = useState<1 | 2 | 3 | 4>(1);
 
   // Handle Download File Mẫu
   const handleDownloadTemplate = () => {
     const ws = XLSX.utils.json_to_sheet([
-      { CauHoi: "Thủ đô của Việt Nam là gì?", DapAnA: "Hồ Chí Minh", DapAnB: "Hà Nội", DapAnC: "Đà Nẵng", DapAnD: "Huế", ViTriDapAnDung: 1, GiaiThich: "Hà Nội là thủ đô của Việt Nam." }
+      { 
+        CauHoi: "Thủ đô của Việt Nam là gì?", 
+        DapAnA: "Hồ Chí Minh", 
+        DapAnB: "Hà Nội", 
+        DapAnC: "Đà Nẵng", 
+        DapAnD: "Huế", 
+        ViTriDapAnDung: 1, 
+        GiaiThich: "Hà Nội là thủ đô của Việt Nam.",
+        CapDoBloom: 1 // 1: Nhận biết, 2: Thông hiểu, 3: Vận dụng, 4: Nâng cao
+      }
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
@@ -108,6 +119,7 @@ export default function QuestionsPage() {
         DapAnD?: string | number;
         ViTriDapAnDung?: number | string;
         GiaiThich?: string;
+        CapDoBloom?: number | string;
       }
 
       const jsonData = XLSX.utils.sheet_to_json(firstSheet) as ExcelRow[];
@@ -148,6 +160,7 @@ export default function QuestionsPage() {
           options: [String(row.DapAnA), String(row.DapAnB), String(row.DapAnC), String(row.DapAnD)],
           correctAnswer: parseCorrectAnswer(row.ViTriDapAnDung),
           explanation: row.GiaiThich ? String(row.GiaiThich) : "",
+          bloomLevel: (row.CapDoBloom && [1, 2, 3, 4].includes(Number(row.CapDoBloom))) ? Number(row.CapDoBloom) as 1|2|3|4 : 1,
           createdAt: new Date().toISOString(),
         });
         addedCount++;
@@ -250,6 +263,7 @@ export default function QuestionsPage() {
     setOptions([...q.options]);
     setCorrectAnswer(q.correctAnswer);
     setExplanation(q.explanation || "");
+    setBloomLevel(q.bloomLevel || 1);
     setIsModalOpen(true);
   };
 
@@ -258,6 +272,7 @@ export default function QuestionsPage() {
     setOptions(["", "", "", ""]);
     setCorrectAnswer(0);
     setExplanation("");
+    setBloomLevel(1);
     setEditingQuestionId(null);
   };
 
@@ -285,7 +300,7 @@ export default function QuestionsPage() {
         // Edit mode
         newQuestionsList = questions.map(q => 
           q.id === editingQuestionId 
-            ? { ...q, content, options, correctAnswer, explanation } 
+            ? { ...q, content, options, correctAnswer, explanation, bloomLevel } 
             : q
         );
       } else {
@@ -297,6 +312,7 @@ export default function QuestionsPage() {
           options,
           correctAnswer,
           explanation,
+          bloomLevel,
           createdAt: new Date().toISOString(),
         };
         
@@ -574,6 +590,38 @@ export default function QuestionsPage() {
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                   />
+                </div>
+
+                </div>
+                
+                {/* Bloom Level Selection */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-3 px-1">Phân loại Tư duy (Bloom Level) <span className="text-[#6c5ce7] font-black">*</span></label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { val: 1, label: "Nhận biết", color: "from-blue-500/20 to-blue-600/20", borderColor: "border-blue-500/30", icon: "🧠" },
+                      { val: 2, label: "Thông hiểu", color: "from-emerald-500/20 to-emerald-600/20", borderColor: "border-emerald-500/30", icon: "📖" },
+                      { val: 3, label: "Vận dụng", color: "from-orange-500/20 to-orange-600/20", borderColor: "border-orange-500/30", icon: "🛠️" },
+                      { val: 4, label: "Nâng cao", color: "from-red-500/20 to-red-600/20", borderColor: "border-red-500/30", icon: "🚀" }
+                    ].map((level) => (
+                      <button
+                        key={level.val}
+                        type="button"
+                        onClick={() => setBloomLevel(level.val as 1|2|3|4)}
+                        className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${
+                          bloomLevel === level.val 
+                            ? `bg-gradient-to-br ${level.color} ${level.borderColor} border-opacity-100 shadow-xl scale-[1.02]` 
+                            : "bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100"
+                        }`}
+                      >
+                        <span className="text-xl">{level.icon}</span>
+                        <div className="text-center">
+                          <p className={`text-[10px] font-black uppercase tracking-tighter ${bloomLevel === level.val ? "text-white" : "text-slate-500"}`}>Level {level.val}</p>
+                          <p className={`text-[9px] font-bold whitespace-nowrap ${bloomLevel === level.val ? "text-white/80" : "text-slate-600"}`}>{level.label}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Options Section */}

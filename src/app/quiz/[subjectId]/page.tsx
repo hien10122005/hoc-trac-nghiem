@@ -12,7 +12,9 @@ import {
   updateDoc,
   increment,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  getDocs,
+  where
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -38,19 +40,18 @@ import {
 import toast from "react-hot-toast";
 import confetti from "canvas-confetti";
 
-interface Question {
-  id: string;
-  content: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
-}
+import { Question } from "@/types/question";
+import { useBloomProgress } from "@/hooks/useBloomProgress";
+import { FirestoreUserData } from "@/types/user";
+import { Lock } from "lucide-react";
 
 interface QuizState {
-  questions: Question[];
+  questions: Question[]; // This will store the filtered questions for the active level
+  allQuestions: Question[]; // All questions fetched for the subject
+  activeLevel: 1 | 2 | 3 | 4;
   currentIdx: number;
   userAnswers: (number | null)[];
-  timeLeft: number; // in seconds
+  timeLeft: number; 
   isFinished: boolean;
   score: number;
   correctCount: number;
@@ -67,14 +68,19 @@ export default function QuizPage() {
   
   const [state, setState] = useState<QuizState>({
     questions: [],
+    allQuestions: [],
+    activeLevel: 1,
     currentIdx: 0,
     userAnswers: [],
-    timeLeft: 20 * 60, // 20 minutes
+    timeLeft: 20 * 60,
     isFinished: false,
     score: 0,
     correctCount: 0,
     reviewMode: false,
   });
+
+  const [userStats, setUserStats] = useState<FirestoreUserData | null>(null);
+  const bloomProgress = useBloomProgress(userStats?.subjectStats?.[subjectId]);
 
   const [isOnline, setIsOnline] = useState(true);
   const [showOnlineSuccess, setShowOnlineSuccess] = useState(false);
@@ -146,17 +152,18 @@ export default function QuizPage() {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
         setUser(authUser);
-        // Fetch saved questions
+        // Fetch saved questions and user progress
         try {
           const statsRef = doc(db, "user_stats", authUser.uid);
           const statsSnap = await getDoc(statsRef);
           if (statsSnap.exists()) {
-             const saved = statsSnap.data().savedQuestions || [];
-             // We only need the IDs for the quick toggle check
-              setSavedQuestionIds(new Set(saved.map((item: {questionId: string}) => item.questionId)));
+             const statsData = statsSnap.data() as FirestoreUserData;
+             setUserStats(statsData);
+             const saved = statsData.savedQuestions || [];
+             setSavedQuestionIds(new Set(saved.map((item: {questionId: string}) => item.questionId)));
           }
         } catch (error) {
-          console.warn("Could not fetch saved questions:", error);
+          console.warn("Could not fetch user stats:", error);
         }
       }
       else router.push("/login");
@@ -188,28 +195,22 @@ export default function QuizPage() {
         const quizDoc = await getDoc(doc(db, "quizzes", subjectId));
         const rawQuestions = quizDoc.exists() ? (quizDoc.data().questions as Question[] || []) : [];
 
-        if (rawQuestions.length === 0) {
-          setLoading(false);
-          return;
-        }
+        setState(prev => {
+          const filtered = rawQuestions.filter(q => (q.bloomLevel || 1) === prev.activeLevel);
+          const shuffled = shuffleArray(filtered).map(q => {
+            const correctText = q.options[q.correctAnswer];
+            const shuffledOptions = shuffleArray(q.options);
+            const newCorrectAnswer = shuffledOptions.indexOf(correctText);
+            return { ...q, options: shuffledOptions, correctAnswer: newCorrectAnswer };
+          });
 
-        // Shuffle questions and options
-        const processedQuestions = shuffleArray(rawQuestions).map(q => {
-          const correctText = q.options[q.correctAnswer];
-          const shuffledOptions = shuffleArray(q.options);
-          const newCorrectAnswer = shuffledOptions.indexOf(correctText);
           return {
-            ...q,
-            options: shuffledOptions,
-            correctAnswer: newCorrectAnswer
+            ...prev,
+            allQuestions: rawQuestions,
+            questions: shuffled,
+            userAnswers: new Array(shuffled.length).fill(null)
           };
         });
-
-        setState(prev => ({
-          ...prev,
-          questions: processedQuestions,
-          userAnswers: new Array(processedQuestions.length).fill(null)
-        }));
       } catch (error) {
         console.error("Error loading quiz:", error);
       } finally {
@@ -273,8 +274,43 @@ export default function QuizPage() {
         updateData[`subjectStats.${subjectId}.totalScoreSum`] = increment(score);
         updateData[`subjectStats.${subjectId}.name`] = subjectName;
 
+        // Cập nhật thống kê Bloom Level
+        const newCorrectStat = (userStats?.subjectStats?.[subjectId]?.bloomLevelStats?.[s.activeLevel]?.correct || 0) + correct;
+        const newTotalStat = (userStats?.subjectStats?.[subjectId]?.bloomLevelStats?.[s.activeLevel]?.total || 0) + total;
+
+        updateData[`subjectStats.${subjectId}.bloomLevelStats.${s.activeLevel}.correct`] = increment(correct);
+        updateData[`subjectStats.${subjectId}.bloomLevelStats.${s.activeLevel}.total`] = increment(total);
+
         // Dùng merge: true để tạo mới nếu chưa có hoặc cập nhật nếu đã có
         await setDoc(statsRef, updateData, { merge: true });
+
+        // Update local state to trigger bloomProgress update
+        setUserStats(prev => {
+          if (!prev) return prev;
+          const newStats = { ...prev };
+          if (!newStats.subjectStats) newStats.subjectStats = {};
+          if (!newStats.subjectStats[subjectId]) {
+              newStats.subjectStats[subjectId] = {
+                  name: subjectName,
+                  totalExams: 0,
+                  totalCorrect: 0,
+                  totalQuestions: 0,
+                  totalScoreSum: 0,
+                  bestScore: 0
+              };
+          }
+          const sub = newStats.subjectStats[subjectId];
+          sub.totalExams += 1;
+          sub.totalCorrect += correct;
+          sub.totalQuestions += total;
+          sub.totalScoreSum += score;
+          sub.bestScore = Math.max(sub.bestScore, score);
+          
+          if (!sub.bloomLevelStats) sub.bloomLevelStats = {};
+          sub.bloomLevelStats[s.activeLevel] = { correct: newCorrectStat, total: newTotalStat };
+          
+          return newStats;
+        });
 
         // 3. Cập nhật Best Score (Chỉ khi điểm mới cao hơn điểm cũ)
         const statsSnap = await getDoc(statsRef);
@@ -380,6 +416,40 @@ export default function QuizPage() {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const handleSwitchLevel = (level: number) => {
+    const levelData = bloomProgress.levels.find(l => l.level === level);
+    if (!levelData?.isUnlocked) {
+      toast.error(`Level ${level} đang bị khóa. Hãy đạt 80% Level ${level - 1} để mở rộng kiến thức!`);
+      return;
+    }
+
+    setState(prev => {
+      const filtered = prev.allQuestions.filter(q => (q.bloomLevel || 1) === level);
+      if (filtered.length === 0) {
+        toast.error(`Hiện tại chưa có câu hỏi nào cho Level ${level}.`);
+        return prev;
+      }
+
+      const shuffled = shuffleArray(filtered).map(q => {
+        const correctText = q.options[q.correctAnswer];
+        const shuffledOptions = shuffleArray(q.options);
+        const newCorrectAnswer = shuffledOptions.indexOf(correctText);
+        return { ...q, options: shuffledOptions, correctAnswer: newCorrectAnswer };
+      });
+
+      return {
+        ...prev,
+        activeLevel: level as 1|2|3|4,
+        questions: shuffled,
+        currentIdx: 0,
+        userAnswers: new Array(shuffled.length).fill(null),
+        isFinished: false,
+        reviewMode: false,
+        timeLeft: 20 * 60
+      };
+    });
   };
 
   const handleAIExplain = async (qIdx: number) => {
@@ -561,10 +631,10 @@ export default function QuizPage() {
               <ChevronLeft size={20} />
             </button>
             <div className="h-8 w-px bg-white/10 hidden sm:block" />
-            <div>
-              <h1 className="text-sm font-bold tracking-tight text-[#aca3ff] uppercase">{subjectName}</h1>
-              <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Đang ôn tập</p>
-            </div>
+             <div>
+               <h1 className="text-sm font-bold tracking-tight text-[#aca3ff] uppercase">{subjectName}</h1>
+               <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Đang ôn tập - Level {state.activeLevel}</p>
+             </div>
           </div>
 
           <div className="flex items-center gap-6">
@@ -591,10 +661,60 @@ export default function QuizPage() {
         />
       </div>
 
-      {/* Main Quiz Section */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 max-w-4xl mx-auto w-full">
         <div className="w-full space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
           
+          {/* Bloom Level Tabs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {bloomProgress.levels.map((lvl) => {
+              const isActive = state.activeLevel === lvl.level;
+              const levelNames = ["Nhận biết", "Thông hiểu", "Vận dụng", "Nâng cao"];
+              
+              return (
+                <button
+                  key={lvl.level}
+                  onClick={() => handleSwitchLevel(lvl.level)}
+                  className={`group relative flex flex-col p-4 rounded-2xl border transition-all duration-500 overflow-hidden ${
+                    isActive 
+                      ? "bg-[#6c5ce7]/10 border-[#6c5ce7] shadow-xl shadow-[#6c5ce7]/10 scale-[1.02]" 
+                      : lvl.isUnlocked 
+                        ? "bg-white/5 border-white/5 hover:bg-white/10" 
+                        : "bg-black/40 border-white/5 opacity-60 grayscale cursor-not-allowed"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? "text-[#6c5ce7]" : "text-slate-500"}`}>
+                      Level {lvl.level}
+                    </span>
+                    {!lvl.isUnlocked && <Lock size={12} className="text-slate-600" />}
+                  </div>
+                  
+                  <h4 className={`text-sm font-bold mb-3 ${isActive ? "text-white" : "text-slate-400"}`}>
+                    {levelNames[lvl.level - 1]}
+                  </h4>
+
+                  {/* Progress Bar Mini */}
+                  <div className="mt-auto">
+                      <div className="flex justify-between items-center mb-1">
+                          <span className="text-[9px] font-bold text-slate-500">{lvl.correct}/{lvl.total > 0 ? lvl.total : "?"}</span>
+                          <span className="text-[9px] font-bold text-[#00cec9]">{Math.round(lvl.percentage)}%</span>
+                      </div>
+                      <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                          <div 
+                              className={`h-full transition-all duration-1000 ${isActive ? "bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe]" : "bg-slate-700"}`}
+                              style={{ width: `${Math.min(lvl.percentage, 100)}%` }}
+                          />
+                      </div>
+                  </div>
+
+                  {isActive && (
+                    <div className="absolute -right-2 -top-2 h-12 w-12 bg-[#6c5ce7]/20 blur-2xl rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Question Info */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -777,6 +897,19 @@ export default function QuizPage() {
                     {state.score >= 8 ? "Thật xuất sắc!" : state.score >= 5 ? "Làm tốt lắm!" : "Cố gắng hơn nhé!"}
                   </h2>
                   <p className="text-slate-400">Bạn đã hoàn thành bài thi môn <span className="text-white font-bold">{subjectName}</span> với <span className="text-[#00cec9] font-bold">{state.correctCount}</span> câu trả lời đúng.</p>
+                  
+                  {/* Unlock Notification */}
+                  {state.score >= 8 && state.activeLevel < 4 && (
+                      <div className="mt-6 p-4 rounded-2xl bg-[#6c5ce7]/10 border border-[#6c5ce7]/20 flex items-center justify-center gap-3 animate-bounce">
+                        <div className="h-10 w-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white">
+                           <Trophy size={20} />
+                        </div>
+                        <div className="text-left">
+                           <p className="text-xs font-bold text-[#aca3ff] uppercase tracking-tighter">Thành tựu mới!</p>
+                           <p className="text-sm font-bold text-white">Đã mở khóa Level {state.activeLevel + 1} thành công!</p>
+                        </div>
+                      </div>
+                  )}
                </div>
 
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

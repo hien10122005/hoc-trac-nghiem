@@ -20,8 +20,10 @@ import {
   Download,
   AlertCircle,
   BookOpen,
+  BookOpen,
   FileText as FileIcon,
-  PlayCircle
+  PlayCircle,
+  BrainCircuit
 } from "lucide-react";
 import { 
   collection, 
@@ -31,9 +33,11 @@ import {
   orderBy, 
   deleteDoc, 
   doc,
+  getDoc,
   setDoc,
   serverTimestamp,
-  updateDoc
+  updateDoc,
+  arrayUnion
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { MaterialData } from "@/types/material";
@@ -64,6 +68,7 @@ export default function MaterialsPage() {
   const [content, setContent] = useState(""); // Markdown content
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isParsingWord, setIsParsingWord] = useState(false);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<MaterialCategory>('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -253,6 +258,59 @@ export default function MaterialsPage() {
       }
     }
   };
+  
+  const handleGenerateQuiz = async (material: MaterialData) => {
+    if (!material.content && material.type === 'reading') {
+        toast.error("Tài liệu không có nội dung để tạo đề!");
+        return;
+    }
+
+    if (!confirm(`Bạn có muốn dùng AI để tạo bộ đề trắc nghiệm (phân cấp Bloom) từ tài liệu "${material.title}" không?`)) {
+        return;
+    }
+
+    setIsGeneratingQuiz(material.id);
+    try {
+        const res = await fetch("/api/ai/generate-quiz", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                title: material.title,
+                content: material.type === 'reading' ? material.content : material.description,
+                subjectId: material.subjectId,
+                count: 10
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Lỗi AI");
+
+        if (data.questions && data.questions.length > 0) {
+            // Save to Firestore quizzes collection
+            const quizRef = doc(db, "quizzes", material.subjectId);
+            const quizSnap = await getDoc(quizRef);
+            
+            if (quizSnap.exists()) {
+                await updateDoc(quizRef, {
+                    questions: arrayUnion(...data.questions)
+                });
+            } else {
+                await setDoc(quizRef, {
+                    subjectId: material.subjectId,
+                    questions: data.questions,
+                    createdAt: serverTimestamp()
+                });
+            }
+            
+            toast.success(`Đã tạo thành công ${data.questions.length} câu hỏi phân cấp Bloom!`, { icon: '🤖' });
+        }
+    } catch (error: any) {
+        console.error("AI Generate Error:", error);
+        toast.error(error.message || "Không thể tạo bộ đề AI.");
+    } finally {
+        setIsGeneratingQuiz(null);
+    }
+  };
 
   const filteredMaterials = materials.filter(m => {
     const matchesSearch = m.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -389,6 +447,16 @@ export default function MaterialsPage() {
                 </div>
                 
                 <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  {m.type === 'reading' && (
+                    <button 
+                      onClick={() => handleGenerateQuiz(m)} 
+                      disabled={isGeneratingQuiz === m.id}
+                      className="p-3 text-[#aca3ff] hover:text-white hover:bg-[#6c5ce7]/20 rounded-xl transition-all flex items-center gap-2 text-sm bg-[#6c5ce7]/10 border border-[#6c5ce7]/20"
+                    >
+                      {isGeneratingQuiz === m.id ? <Loader2 size={16} className="animate-spin" /> : <Database size={16} />}
+                      <span className="sm:hidden lg:inline">{isGeneratingQuiz === m.id ? "Đang tạo..." : "Tạo bộ đề AI"}</span>
+                    </button>
+                  )}
                   {m.type !== 'reading' && (
                     <a href={m.url} target="_blank" rel="noopener noreferrer" className="p-3 text-slate-400 hover:text-[#00cec9] hover:bg-[#00cec9]/10 rounded-xl transition-all flex items-center gap-2 text-sm bg-white/5">
                       <Download size={16} /> <span className="sm:hidden lg:inline">Mở tài liệu</span>
