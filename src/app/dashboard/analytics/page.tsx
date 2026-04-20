@@ -66,7 +66,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function AnalyticsPage() {
+  const [results, setResults] = useState<QuizResult[]>([]);
   const [aggregatedStats, setAggregatedStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedSubject, setSelectedSubject] = useState("all");
 
   // ─── Fetch Data ─────────────────────────────────────
   useEffect(() => {
