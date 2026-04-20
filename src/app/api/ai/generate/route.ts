@@ -36,8 +36,8 @@ export async function POST(req: Request) {
       Lưu ý: "correctAnswer" là số nguyên từ 0-3 tương ứng với vị trí đáp án đúng trong mảng options.
     `;
 
-    // Chiến lược Fallback Model: Ưu tiên 2.5-flash (đã xác nhận hoạt động)
-    const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+    // Ưu tiên 2.5-flash-lite (1000 req/ngày) > 2.5-flash (250 req/ngày) > 2.0-flash-lite
+    const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash-lite"];
     let lastError: any = null;
 
     for (const modelName of models) {

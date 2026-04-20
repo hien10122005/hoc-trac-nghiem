@@ -54,8 +54,8 @@ Yêu cầu:
 5. Không dùng markdown phức tạp, chỉ dùng in đậm cho từ khóa.
 `;
 
-    // Chiến lược Fallback Model: Ưu tiên 2.5-flash (đã xác nhận hoạt động)
-    const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+    // Ưu tiên 2.5-flash-lite (1000 req/ngày) > 2.5-flash (250 req/ngày) > 2.0-flash-lite
+    const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash-lite"];
     let lastError: any = null;
 
     for (const modelName of models) {
