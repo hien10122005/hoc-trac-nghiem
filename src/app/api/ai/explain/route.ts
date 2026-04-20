@@ -42,8 +42,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Dữ liệu câu hỏi không hợp lệ" }, { status: 400 });
     }
 
-    // Sử dụng model ổn định
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Sử dụng model mới nhất tương thích với API Key của QIU
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `
 Bạn là QIU AI Tutor - Gia sư thông minh của hệ thống QIU. 
