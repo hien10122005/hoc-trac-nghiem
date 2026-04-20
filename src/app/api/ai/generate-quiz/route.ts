@@ -43,28 +43,41 @@ export async function POST(req: Request) {
       Lưu ý quan trọng: "correctAnswer" là số nguyên 0-3. "bloomLevel" BẮT BUỘC có giá trị 1, 2, 3 hoặc 4.
     `;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(aiPrompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    try {
-      const jsonStr = text.replace(/```json|```/g, "").trim();
-      const data = JSON.parse(jsonStr);
-      
-      // Validation & Default values if AI misses something
-      if (data.questions && Array.isArray(data.questions)) {
-        data.questions = data.questions.map((q: any) => ({
-          ...q,
-          bloomLevel: [1, 2, 3, 4].includes(q.bloomLevel) ? q.bloomLevel : 1,
-          subjectId: subjectId || "unknown"
-        }));
-      }
+    const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-1.5-flash"];
+    let lastError: any = null;
 
-      return NextResponse.json(data);
-    } catch (parseError) {
-      console.error("Parse Error:", text);
-      return NextResponse.json({ error: "AI trả về định dạng không hợp lệ. Vui lòng thử lại." }, { status: 502 });
+    for (const modelName of models) {
+      try {
+        const model = genAI.getGenerativeModel({ 
+          model: modelName,
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json",
+          }
+        });
+
+        const result = await model.generateContent(aiPrompt);
+        const response = await result.response;
+        const text = response.text().trim();
+        const data = JSON.parse(text);
+        
+        // Validation & Default values if AI misses something
+        if (data.questions && Array.isArray(data.questions)) {
+          data.questions = data.questions.map((q: any) => ({
+            ...q,
+            bloomLevel: [1, 2, 3, 4].includes(q.bloomLevel) ? q.bloomLevel : 1,
+            subjectId: subjectId || "unknown"
+          }));
+        }
+
+        return NextResponse.json(data);
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Model ${modelName} failed, trying next...`);
+        if (!err.message?.includes("429") && !err.message?.includes("404") && !err.message?.includes("403")) {
+          break;
+        }
+      }
     }
 
   } catch (error: any) {

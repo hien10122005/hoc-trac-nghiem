@@ -15,11 +15,7 @@ export async function POST(req: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash-lite",
-      generationConfig: { responseMimeType: "application/json" }
-    });
-
+    
     const aiPrompt = `
       Bạn là chuyên gia phân tích dữ liệu giáo dục của hệ thống QIU.
       Nhiệm vụ: Chuyển đổi nội dung dưới đây thành đúng 10 thẻ ghi nhớ (Flashcards) cực kỳ chất lượng.
@@ -45,19 +41,39 @@ export async function POST(req: Request) {
       }
     `;
 
-    const result = await model.generateContent(aiPrompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    const data = JSON.parse(text);
-    
-    // Đảm bảo card nào cũng có ID ngẫu nhiên
-    const cardsWithIds = data.cards.map((c: any, index: number) => ({
-      ...c,
-      id: `ai_${Date.now()}_${index}`
-    }));
+    const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-1.5-flash"];
+    let lastError: any = null;
 
-    return NextResponse.json({ cards: cardsWithIds });
+    for (const modelName of models) {
+      try {
+        const model = genAI.getGenerativeModel({ 
+          model: modelName,
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json",
+          }
+        });
+
+        const result = await model.generateContent(aiPrompt);
+        const response = await result.response;
+        const text = response.text().trim();
+        const data = JSON.parse(text);
+        
+        // Đảm bảo card nào cũng có ID ngẫu nhiên
+        const cardsWithIds = data.cards.map((c: any, index: number) => ({
+          ...c,
+          id: `ai_${Date.now()}_${index}`
+        }));
+
+        return NextResponse.json({ cards: cardsWithIds });
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Model ${modelName} failed in flashcard generation, trying next...`);
+        if (!err.message?.includes("429") && !err.message?.includes("404") && !err.message?.includes("403")) {
+          break;
+        }
+      }
+    }
 
   } catch (error: any) {
     console.error("AI Flashcard Generation Error:", error);

@@ -78,8 +78,8 @@ Yêu cầu:
 5. Không dùng markdown phức tạp.
 `;
 
-    // Ưu tiên 2.5-flash-lite > 2.5-flash > 2.0-flash-lite
-    const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash-lite"];
+    // Ưu tiên 2.5-flash-lite > 2.5-flash > 1.5-flash
+    const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-1.5-flash"];
     let lastError: any = null;
 
     for (const modelName of models) {

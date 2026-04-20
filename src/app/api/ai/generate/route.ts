@@ -36,19 +36,24 @@ export async function POST(req: Request) {
       Lưu ý: "correctAnswer" là số nguyên từ 0-3 tương ứng với vị trí đáp án đúng trong mảng options.
     `;
 
-    // Ưu tiên 2.5-flash-lite (1000 req/ngày) > 2.5-flash (250 req/ngày) > 2.0-flash-lite
-    const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash-lite"];
+    const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-1.5-flash"];
     let lastError: any = null;
 
     for (const modelName of models) {
       try {
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({ 
+          model: modelName,
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json",
+          }
+        });
+
         const result = await model.generateContent(aiPrompt);
         const response = await result.response;
-        const text = response.text();
+        const text = response.text().trim();
+        const data = JSON.parse(text);
         
-        const jsonStr = text.replace(/```json|```/g, "").trim();
-        const data = JSON.parse(jsonStr);
         return NextResponse.json(data);
       } catch (err: any) {
         lastError = err;
