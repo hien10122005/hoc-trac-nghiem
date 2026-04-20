@@ -404,10 +404,14 @@ export default function QuizPage() {
         setAiExplanations(prev => ({ ...prev, [qKey]: data.explanation }));
         toast.success("Gia sư QIU đã trả lời!");
       } else {
-        toast.error(data.error || "AI đang bận, vui lòng thử lại sau!");
+        if (res.status === 429 || data.error === 'Too Many Requests') {
+           toast.error('QIU AI đang quá tải do nhiều người dùng. Vui lòng thử lại sau 1 phút nhé!');
+        } else {
+           toast.error(data.error || "AI đang bận, vui lòng thử lại sau!");
+        }
       }
     } catch (_err) {
-      toast.error("AI đang bận, vui lòng thử lại sau!");
+      toast.error("Vui lòng kiểm tra lại kết nối thử lại sau!");
     } finally {
       setAiLoading(prev => ({ ...prev, [qKey]: false }));
     }
@@ -667,7 +671,7 @@ export default function QuizPage() {
                    ) : (
                      <Sparkles size={18} />
                    )}
-                   <span>{aiLoading[`${subjectId}_${state.currentIdx}`] ? "Đang suy nghĩ..." : "Giải thích bằng AI"}</span>
+                   <span>{aiLoading[`${subjectId}_${state.currentIdx}`] ? "QIU AI đang phân tích..." : "Giải thích bằng AI"}</span>
                  </button>
                ) : (
                  <div className="p-6 rounded-3xl bg-[#6c5ce7]/5 border border-[#6c5ce7]/20 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 relative overflow-hidden">

@@ -79,7 +79,7 @@ Yêu cầu:
     console.error("AI Explain Error:", error);
 
     if (error.message?.includes("429")) {
-      return NextResponse.json({ error: "AI đang bận (đạt giới hạn). Thử lại sau 1 phút." }, { status: 429 });
+      return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
     }
     
     return NextResponse.json({ error: "Lỗi AI: " + (error.message || "Unknown error") }, { status: 500 });
