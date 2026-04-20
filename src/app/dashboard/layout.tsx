@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { 
   Home, 
@@ -22,7 +23,6 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import { useUserStats } from "@/hooks/useUserStats";
-import { motion } from "framer-motion";
 
 export default function DashboardLayout({
   children,
