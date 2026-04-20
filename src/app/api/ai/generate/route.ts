@@ -36,8 +36,8 @@ export async function POST(req: Request) {
       Lưu ý: "correctAnswer" là số nguyên từ 0-3 tương ứng với vị trí đáp án đúng trong mảng options.
     `;
 
-    // Chiến lược Fallback Model
-    const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+    // Chiến lược Fallback Model: Ưu tiên 2.5-flash (đã xác nhận hoạt động)
+    const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
     let lastError: any = null;
 
     for (const modelName of models) {
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       } catch (err: any) {
         lastError = err;
         console.warn(`Model ${modelName} failed in generate, trying next...`);
-        if (!err.message?.includes("429") && !err.message?.includes("404")) {
+        if (!err.message?.includes("429") && !err.message?.includes("404") && !err.message?.includes("403")) {
           break;
         }
       }

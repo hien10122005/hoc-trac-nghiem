@@ -54,8 +54,8 @@ Yêu cầu:
 5. Không dùng markdown phức tạp, chỉ dùng in đậm cho từ khóa.
 `;
 
-    // Chiến lược Fallback Model: Thử 2.0 trước, nếu lỗi thì xuống 1.5
-    const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
+    // Chiến lược Fallback Model: Ưu tiên 2.5-flash (đã xác nhận hoạt động)
+    const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
     let lastError: any = null;
 
     for (const modelName of models) {
@@ -75,7 +75,7 @@ Yêu cầu:
         lastError = err;
         console.warn(`Model ${modelName} failed, trying next... Error:`, err.message);
         // Nếu lỗi không phải 429 hay 404 (ví dụ lỗi Auth) thì dừng luôn
-        if (!err.message?.includes("429") && !err.message?.includes("404")) {
+        if (!err.message?.includes("429") && !err.message?.includes("404") && !err.message?.includes("403")) {
            break;
         }
         continue;
