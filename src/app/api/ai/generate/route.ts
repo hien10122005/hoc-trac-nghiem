@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY || "";
+    const apiKey = (process.env.GEMINI_API_KEY || "").trim();
     if (!apiKey) {
       return NextResponse.json({ error: "Server thiếu cấu hình API Key (GEMINI_API_KEY). Vui lòng kiểm tra lại Dashboard Vercel." }, { status: 500 });
     }
