@@ -32,7 +32,8 @@ import {
   UserPlus,
   ShieldAlert,
   Loader2,
-  Inbox
+  Inbox,
+  Sparkles
 } from "lucide-react";
 
 interface RecentActivity {
@@ -50,7 +51,8 @@ export default function AdminDashboard() {
     subjects: 0,
     questions: 0,
     students: 0,
-    materials: 0
+    materials: 0,
+    flashcards: 0
   });
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [isStatsLoading, setIsStatsLoading] = useState(true);
@@ -94,11 +96,12 @@ export default function AdminDashboard() {
     // 1. Fetch Summary Stats
     async function fetchCounts() {
       try {
-        const [subCount, quizzesSnap, userCount, materialsCount] = await Promise.all([
+        const [subCount, quizzesSnap, userCount, materialsCount, flashcardsCount] = await Promise.all([
           getCountFromServer(collection(db, "subjects")),
           getDocs(collection(db, "quizzes")),
           getCountFromServer(query(collection(db, "users"), where("role", "==", "student"))),
-          getCountFromServer(collection(db, "materials"))
+          getCountFromServer(collection(db, "materials")),
+          getCountFromServer(collection(db, "flashcard_decks"))
         ]);
 
         let totalQuestions = 0;
@@ -111,7 +114,8 @@ export default function AdminDashboard() {
           subjects: subCount.data().count,
           questions: totalQuestions,
           students: userCount.data().count,
-          materials: materialsCount.data().count
+          materials: materialsCount.data().count,
+          flashcards: flashcardsCount.data().count
         });
       } catch (error) {
         console.error("Error fetching counts:", error);
@@ -207,8 +211,8 @@ export default function AdminDashboard() {
   const statCards = [
     { label: "Tổng môn học", value: stats.subjects, icon: BookOpen, color: "from-[#6c5ce7] to-[#a29bfe]" },
     { label: "Ngân hàng câu hỏi", value: stats.questions.toLocaleString(), icon: Database, color: "from-[#00cec9] to-[#81ecec]" },
-    { label: "Tài liệu thư viện", value: stats.materials, icon: FileText, color: "from-amber-500 to-orange-400" },
-    { label: "Tổng học viên", value: stats.students, icon: Users, color: "from-blue-500 to-indigo-400" },
+    { label: "Thư viện tài liệu", value: stats.materials, icon: FileText, color: "from-amber-500 to-orange-400" },
+    { label: "Bộ thẻ Flashcards", value: stats.flashcards, icon: Sparkles, color: "from-pink-500 to-rose-400" },
   ];
 
   const formatRelativeTime = (timestamp: Timestamp | null) => {
@@ -232,9 +236,9 @@ export default function AdminDashboard() {
           <p className="text-slate-400 mt-1 font-medium">Hệ thống đang được vận hành ổn định và chính xác.</p>
         </div>
         <div className="flex items-center gap-3 mt-4 md:mt-0">
-          <button className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/10 transition-all border border-white/5">
-            <FileText size={18} />
-            <span>Xuất báo cáo</span>
+          <button onClick={() => router.push('/admin/flashcards')} className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/10 transition-all border border-white/5">
+            <Sparkles size={18} className="text-pink-500" />
+            <span>Quản lý Flashcards</span>
           </button>
           <button onClick={() => router.push('/admin/subjects')} className="flex items-center gap-2 rounded-xl bg-[#6c5ce7] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#5b4bc4] transition-all shadow-lg shadow-[#6c5ce7]/20">
             <Plus size={18} />

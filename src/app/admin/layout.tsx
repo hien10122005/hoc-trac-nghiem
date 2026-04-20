@@ -11,7 +11,8 @@ import {
   Menu, 
   Bell,
   Search,
-  FileText
+  FileText,
+  Sparkles
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -32,6 +33,7 @@ export default function AdminLayout({
     { name: "Tổng quan", icon: LayoutDashboard, href: "/admin" },
     { name: "Quản lý môn học", icon: BookOpen, href: "/admin/subjects" },
     { name: "Ngân hàng câu hỏi", icon: Database, href: "/admin/questions" },
+    { name: "Thẻ học Flashcards", icon: Sparkles, href: "/admin/flashcards" },
     { name: "Thư viện tài liệu", icon: FileText, href: "/admin/materials" },
     { name: "Tài khoản học viên", icon: Users, href: "/admin/users" },
   ];
@@ -41,6 +43,7 @@ export default function AdminLayout({
       case "Tổng quan": return <LayoutDashboard size={22} />;
       case "Quản lý môn học": return <BookOpen size={22} />;
       case "Ngân hàng câu hỏi": return <Database size={22} />;
+      case "Thẻ học Flashcards": return <Sparkles size={22} />;
       case "Thư viện tài liệu": return <FileText size={22} />;
       case "Tài khoản học viên": return <Users size={22} />;
       default: return <LayoutDashboard size={22} />;

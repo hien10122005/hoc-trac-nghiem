@@ -10,12 +10,21 @@ export interface SubjectStats {
   lastUpdatedAt?: Timestamp;
 }
 
+export interface SavedQuestion {
+  subjectId: string;
+  questionId: string;
+  content: string;
+  savedAt: string;
+  topicId?: string;
+  topicName?: string;
+}
+
 export interface FirestoreUserData {
   name?: string;
   email?: string;
   role?: "admin" | "student";
   createdAt: Timestamp;
-  savedQuestions?: string[];
+  savedQuestions?: SavedQuestion[];
   totalExams?: number;
   totalCorrect?: number;
   totalQuestions?: number;
