@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Quote, LogOut } from "lucide-react";
+import { Quote, LogOut, GraduationCap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { signOut, onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
