@@ -88,6 +88,16 @@ export default function AnalyticsPage() {
           const statsDoc = await getDoc(doc(db, "user_stats", user.uid));
           if (statsDoc.exists()) {
             setAggregatedStats(statsDoc.data() as AggregatedStats);
+          } else {
+            setAggregatedStats({
+              totalExams: 0,
+              totalScoreSum: 0,
+              bestScore: 0,
+              totalCorrect: 0,
+              totalQuestions: 0,
+              streak: 0,
+              subjectStats: {}
+            });
           }
 
           // 2. Fetch Recent Results (limit 20) instead of all to save READs
@@ -149,24 +159,7 @@ export default function AnalyticsPage() {
 
   // ─── Stats Cards Data ──────────────────────────────
   const stats = useMemo(() => {
-    if (!aggregatedStats) {
-       // Fallback to calculation if stats doc doesn't exist yet
-       if (filteredResults.length === 0) return null;
-       const avgScore = filteredResults.reduce((a, r) => a + r.score, 0) / filteredResults.length;
-       const bestScore = Math.max(...filteredResults.map((r) => r.score));
-       const totalCorrect = filteredResults.reduce((a, r) => a + r.correctCount, 0);
-       const totalQuestions = filteredResults.reduce((a, r) => a + r.totalQuestions, 0);
-       const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
-       return {
-         totalExams: filteredResults.length,
-         avgScore: avgScore.toFixed(1),
-         bestScore,
-         accuracy,
-         streak: 0,
-         trend: "0.0",
-         trendUp: true,
-       };
-    }
+    if (!aggregatedStats) return null;
 
     // Use Aggregated Stats for "all" mode
     if (selectedSubject === "all") {
@@ -186,7 +179,15 @@ export default function AnalyticsPage() {
     } else {
        // Per subject stats from the nested object
        const sub = Object.values(aggregatedStats.subjectStats || {}).find((s) => s.name === selectedSubject);
-       if (!sub) return null;
+       if (!sub) return {
+         totalExams: 0,
+         avgScore: "0.0",
+         bestScore: 0,
+         accuracy: 0,
+         streak: 0,
+         trend: "N/A",
+         trendUp: true,
+       };
        
        const avgScore = sub.totalExams > 0 ? sub.totalScoreSum / sub.totalExams : 0;
        const accuracy = sub.totalQuestions > 0 ? Math.round((sub.totalCorrect / sub.totalQuestions) * 100) : 0;

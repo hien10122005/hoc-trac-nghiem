@@ -396,17 +396,18 @@ export default function QuizPage() {
           question: question.content,
           options: question.options,
           correctAnswer: question.correctAnswer,
-          userAnswer: state.userAnswers[qIdx]
+          userAnswer: state.userAnswers[qIdx] !== undefined ? state.userAnswers[qIdx] : null
         })
       });
       const data = await res.json();
-      if (data.explanation) {
+      if (res.ok && data.explanation) {
         setAiExplanations(prev => ({ ...prev, [qKey]: data.explanation }));
+        toast.success("Gia sư QIU đã trả lời!");
       } else {
-        toast.error(data.error || "Không thể lấy giải thích từ AI");
+        toast.error(data.error || "AI đang bận, vui lòng thử lại sau!");
       }
     } catch (_err) {
-      toast.error("Lỗi kết nối AI");
+      toast.error("AI đang bận, vui lòng thử lại sau!");
     } finally {
       setAiLoading(prev => ({ ...prev, [qKey]: false }));
     }

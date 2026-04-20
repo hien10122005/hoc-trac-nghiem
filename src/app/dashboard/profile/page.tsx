@@ -138,43 +138,24 @@ export default function ProfilePage() {
           setUserData(userDoc.data() as FirestoreUserData);
         }
 
-        // Fetch results for badge calculation
         try {
-          const q = query(
-            collection(db, "results"),
-            where("userId", "==", authUser.uid),
-            orderBy("createdAt", "desc")
-          );
-          const snapshot = await getDocs(q);
-          const results = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as unknown as QuizResultData[];
-
-          if (results.length > 0) {
-            const totalExams = results.length;
-            const avgScore = results.reduce((a, r) => a + (r.score || 0), 0) / totalExams;
-            const bestScore = Math.max(...results.map((r) => r.score || 0));
-            const totalCorrect = results.reduce((a, r) => a + (r.correctCount || 0), 0);
-            const totalQ = results.reduce((a, r) => a + (r.totalQuestions || 0), 0);
-            const accuracy = totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : 0;
-            const subjectCount = new Set(results.map((r) => r.subjectName)).size;
-
-            // Calculate streak (sort by createdAt desc)
-            const sorted = [...results].sort((a, b) => {
-              const da = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
-              const db2 = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
-              return db2 - da;
-            });
-            let streak = 0;
-            for (const r of sorted) {
-              if ((r.score || 0) >= 5) streak++;
-              else break;
-            }
-
-            setStats({ totalExams, avgScore, bestScore, accuracy, streak, subjectCount });
+          const statsDoc = await getDoc(doc(db, "user_stats", authUser.uid));
+          if (statsDoc.exists()) {
+             const data = statsDoc.data();
+             const totalExams = data.totalExams || 0;
+             const avgScore = totalExams > 0 ? (data.totalScoreSum || 0) / totalExams : 0;
+             const bestScore = data.bestScore || 0;
+             const totalCorrect = data.totalCorrect || 0;
+             const totalQ = data.totalQuestions || 0;
+             const accuracy = totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : 0;
+             const streak = data.streak || 0;
+             const subjectCount = Object.keys(data.subjectStats || {}).length;
+             setStats({ totalExams, avgScore, bestScore, accuracy, streak, subjectCount });
           } else {
-            setStats({ totalExams: 0, avgScore: 0, bestScore: 0, accuracy: 0, streak: 0, subjectCount: 0 });
+             setStats({ totalExams: 0, avgScore: 0, bestScore: 0, accuracy: 0, streak: 0, subjectCount: 0 });
           }
         } catch (err) {
-          console.error("Error fetching results for badges:", err);
+          console.error("Error fetching user stats for badges:", err);
           setStats({ totalExams: 0, avgScore: 0, bestScore: 0, accuracy: 0, streak: 0, subjectCount: 0 });
         }
       }

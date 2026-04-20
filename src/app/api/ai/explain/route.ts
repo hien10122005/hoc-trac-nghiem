@@ -42,8 +42,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Dữ liệu câu hỏi không hợp lệ" }, { status: 400 });
     }
 
-    // Sử dụng gemini-2.0-flash
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    // Sử dụng model ổn định
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `
 Bạn là QIU AI Tutor - Gia sư thông minh của hệ thống QIU. 
@@ -61,7 +61,7 @@ Yêu cầu:
 2. Nếu học viên chọn sai, hãy chỉ ra lỗi sai phổ biến hoặc tại sao lựa chọn đó không chính xác.
 3. Câu văn thân thiện, hiện đại, mang tinh thần QIU (với những từ như "QIU-er", "các bạn học viên QIU"...).
 4. Giới hạn trong khoảng 3-5 câu.
-5. Không dùng markdown quá phức tạp, chỉ dùng in đậm cho các từ khóa quan trọng.
+5. Không dùng markdown quá phức tạp, chỉ dùng in đậm cho các từ khóa.
 `;
 
     const result = await model.generateContent(prompt);

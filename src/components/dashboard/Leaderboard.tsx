@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import { motion } from "framer-motion";
-import { Trophy, Medal, User } from "lucide-react";
+import { Trophy, Medal, User, RefreshCw } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface LeaderboardEntry {
   userId: string;
@@ -15,22 +17,54 @@ interface LeaderboardEntry {
 export default function Leaderboard() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const snap = await getDoc(doc(db, "system_data", "leaderboard_snapshot"));
+      if (snap.exists()) {
+        setEntries(snap.data().entries || []);
+      }
+    } catch (err) {
+      console.error("Leaderboard fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function fetchLeaderboard() {
-      try {
-        const snap = await getDoc(doc(db, "system_data", "leaderboard_snapshot"));
-        if (snap.exists()) {
-          setEntries(snap.data().entries || []);
-        }
-      } catch (err) {
-        console.error("Leaderboard fetch error:", err);
-      } finally {
-        setLoading(false);
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user && user.email?.toLowerCase().includes("phanvanhien")) {
+        setIsAdmin(true);
       }
-    }
-    fetchLeaderboard();
+    });
+    return () => unsub();
   }, []);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
+
+  const handleManualTrigger = async () => {
+    if (isRefreshing) return;
+    try {
+       setIsRefreshing(true);
+       toast.loading("Đang tính toán Leaderboard...", { id: "lb-refresh" });
+       const res = await fetch("/api/cron/leaderboard", { method: "POST" });
+       if (!res.ok && res.status === 405) {
+          // Fallback if the route expects GET
+          await fetch("/api/cron/leaderboard", { method: "GET" });
+       }
+       toast.success("Bảng xếp hạng đã cập nhật!", { id: "lb-refresh" });
+       await fetchLeaderboard();
+    } catch (err) {
+       console.error("Leaderboard update error:", err);
+       toast.error("Lỗi khi cập nhật Bảng xếp hạng", { id: "lb-refresh" });
+    } finally {
+       setIsRefreshing(false);
+    }
+  };
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -42,10 +76,20 @@ export default function Leaderboard() {
         <div className="h-10 w-10 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-500">
           <Trophy size={20} />
         </div>
-        <div>
+        <div className="flex-1">
           <h3 className="text-lg font-bold text-white leading-tight">Bảng xếp hạng</h3>
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">🔄 Cập nhật lúc 00:00 mỗi ngày</p>
         </div>
+        {isAdmin && (
+          <button 
+            onClick={handleManualTrigger}
+            disabled={isRefreshing}
+            title="Cập nhật Bảng xếp hạng ngay lập tức"
+            className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-[#6c5ce7] transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 space-y-4">

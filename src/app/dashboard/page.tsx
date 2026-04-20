@@ -59,13 +59,18 @@ export default function DashboardPage() {
       try {
         // 1. Check for updates
         const updateDoc = await getDoc(doc(db, "system_metadata", "updates"));
-        const lastServerUpdate = updateDoc.exists() ? updateDoc.data()?.lastUpdated?.toMillis() : 0;
+        let lastServerUpdate = updateDoc.exists() ? updateDoc.data()?.lastUpdated?.toMillis() : 0;
         const lastLocalSync = parseInt(localStorage.getItem('sys_lastUpdated_subjects') || '0');
         
+        const forceServerFetch = !updateDoc.exists();
+        if (forceServerFetch) {
+            lastServerUpdate = Date.now();
+        }
+
         const qSub = query(collection(db, "subjects"), orderBy("name", "asc"));
         let snapshot;
 
-        if (lastServerUpdate > lastLocalSync || !lastLocalSync) {
+        if (forceServerFetch || lastServerUpdate > lastLocalSync || !lastLocalSync) {
           // Force server fetch
           console.log("Smart Sync: Data changed or first sync. Fetching from Server...");
           snapshot = await getDocs(qSub);
