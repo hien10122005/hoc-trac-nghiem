@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot 
+import {
+  collection,
+  query,
+  where,
+  onSnapshot
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { 
+import {
   Play,
   PlayCircle,
   BookOpen,
@@ -95,13 +95,13 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div>
-           <button 
-             onClick={onBack}
-             className="text-xs font-bold text-[#6c5ce7] hover:text-[#aca3ff] transition-colors flex items-center gap-1 mb-1"
-           >
-             ← QUAY LẠI DANH SÁCH
-           </button>
-           <h2 className="text-2xl font-bold text-white">Tài liệu: {subjectName}</h2>
+          <button
+            onClick={onBack}
+            className="text-xs font-bold text-[#6c5ce7] hover:text-[#aca3ff] transition-colors flex items-center gap-1 mb-1"
+          >
+            ← QUAY LẠI DANH SÁCH
+          </button>
+          <h2 className="text-2xl font-bold text-white">Tài liệu: {subjectName}</h2>
         </div>
 
         {/* Category Tabs */}
@@ -115,11 +115,10 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as MaterialCategory)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                activeTab === tab.id
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === tab.id
                   ? "bg-white/10 text-white shadow-lg"
                   : "text-slate-500 hover:text-slate-300"
-              }`}
+                }`}
             >
               <tab.icon size={14} />
               <span className="hidden sm:inline">{tab.label}</span>
@@ -131,7 +130,7 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
       {filteredMaterials.length > 0 ? (
         <div className="grid grid-cols-1 gap-4">
           {filteredMaterials.map((m) => (
-            <div 
+            <div
               key={m.id}
               className="group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-3xl bg-gradient-to-br from-[#10101f] to-[#16162d] border border-white/5 p-6 hover:border-[#6c5ce7]/30 transition-all duration-300"
             >
@@ -144,10 +143,10 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
                   <p className="text-sm text-slate-500 mt-1 line-clamp-1">{m.description || "Tài liệu học tập hỗ trợ môn học."}</p>
                 </div>
               </div>
-              
+
               <div className="w-full sm:w-auto">
                 {m.type === 'youtube' ? (
-                  <button 
+                  <button
                     onClick={() => setSelectedVideo(m)}
                     className={`flex items-center gap-2 px-6 py-3 rounded-2xl transition-all text-sm font-bold w-full justify-center border ${getActionColor(m.type)}`}
                   >
@@ -155,7 +154,7 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
                     <span>Xem Video</span>
                   </button>
                 ) : m.type === 'reading' ? (
-                  <button 
+                  <button
                     onClick={() => setSelectedReading(m)}
                     className={`flex items-center gap-2 px-6 py-3 rounded-2xl transition-all text-sm font-bold w-full justify-center border ${getActionColor(m.type)}`}
                   >
@@ -163,9 +162,9 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
                     <span>Đọc bài học</span>
                   </button>
                 ) : (
-                  <a 
-                    href={m.url} 
-                    target="_blank" 
+                  <a
+                    href={m.url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/5 text-slate-300 hover:bg-[#00cec9]/20 hover:text-white hover:border-[#00cec9]/30 transition-all text-sm font-bold w-full justify-center"
                   >
@@ -184,16 +183,16 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
           <p className="text-slate-500 mt-1 text-sm text-center">Chưa có {activeTab === 'all' ? 'tài liệu' : activeTab} nào trong danh mục này.</p>
         </div>
       )}
-      
+
       {/* Modals */}
-      <VideoPlayerModal 
+      <VideoPlayerModal
         isOpen={!!selectedVideo}
         onClose={() => setSelectedVideo(null)}
         videoUrl={selectedVideo?.url || ""}
         videoTitle={selectedVideo?.title || ""}
       />
 
-      <MaterialContentModal 
+      <MaterialContentModal
         isOpen={!!selectedReading}
         onClose={() => setSelectedReading(null)}
         title={selectedReading?.title || ""}
