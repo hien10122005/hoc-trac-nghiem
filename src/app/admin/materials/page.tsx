@@ -109,9 +109,30 @@ export default function MaterialsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !subjectId || !url.trim()) {
-      toast.error("Vui lòng điền đầy đủ các thông tin bắt buộc!");
+    
+    // Debug form state
+    console.log("Submitting Material:", { title, subjectId, type, url, content, description });
+
+    // Validation
+    if (!title.trim()) {
+      toast.error("Vui lòng nhập tiêu đề tài liệu!");
       return;
+    }
+    if (!subjectId) {
+      toast.error("Vui lòng chọn môn học!");
+      return;
+    }
+
+    if (type === 'reading') {
+      if (!content.trim()) {
+        toast.error("Vui lòng nhập nội dung bài đọc (Markdown)!");
+        return;
+      }
+    } else {
+      if (!url.trim()) {
+        toast.error("Vui lòng nhập đường dẫn tài liệu (URL)!");
+        return;
+      }
     }
 
     setIsSubmitting(true);
