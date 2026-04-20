@@ -13,7 +13,10 @@ import {
   PlayCircle,
   BookOpen,
   FileIcon,
-  DownloadCloud
+  DownloadCloud,
+  ExternalLink,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import VideoPlayerModal from "./VideoPlayerModal";
 import MaterialContentModal from "./MaterialContentModal";
