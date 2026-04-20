@@ -90,7 +90,7 @@ export default function KnowledgeGraphBase({ subjectId }: Props) {
 
   // Hàm định nghĩa Style Glassmorphism cho từng trạng thái Node
   const getNodeStyle = (status: string) => {
-    const base = {
+    const base: React.CSSProperties = {
       borderRadius: '20px',
       padding: '16px 24px',
       fontSize: '14px',

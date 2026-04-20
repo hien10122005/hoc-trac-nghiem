@@ -124,18 +124,30 @@ export default function KnowledgeGraphAdmin() {
     loadData();
   }, [selectedSubject, setNodes, setEdges]);
 
-  const getNodeStyle = (status: string) => ({
-    background: status === 'completed' ? 'rgba(0, 206, 201, 0.1)' : 'rgba(108, 92, 231, 0.05)',
-    color: status === 'completed' ? '#00cec9' : '#fff',
-    border: `1px solid ${status === 'completed' ? '#00cec9' : '#6c5ce7'}`,
-    borderRadius: '12px',
-    padding: '10px',
-    fontSize: '12px',
-    fontWeight: '700',
-    width: 180,
-    textAlign: 'center',
-    backdropFilter: 'blur(10px)'
-  });
+  const getNodeStyle = (status: string): React.CSSProperties => {
+    const base: React.CSSProperties = {
+      borderRadius: '20px',
+      padding: '16px 24px',
+      fontSize: '14px',
+      fontWeight: '800',
+      width: 220,
+      textAlign: 'center',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      backdropFilter: 'blur(16px)',
+      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '60px'
+    };
+    return {
+      ...base,
+      background: status === 'completed' ? 'rgba(0, 206, 201, 0.1)' : 'rgba(108, 92, 231, 0.05)',
+      color: status === 'completed' ? '#00cec9' : '#fff',
+      borderColor: status === 'completed' ? '#00cec9' : '#6c5ce7'
+    };
+  };
 
   const onConnect = useCallback((params: Connection | Edge) => {
     setEdges((eds) => addEdge({
