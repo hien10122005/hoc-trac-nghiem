@@ -390,6 +390,19 @@ export default function QuizPage() {
     if (aiExplanations[qKey]) return;
 
     setIsExplaining(true); // 1. Bật trạng thái loading NGAY LẬP TỨC
+    
+    // MOCK API - Tạm thời cô lập Frontend
+    setTimeout(() => {
+      setAiExplanations(prev => ({ 
+        ...prev, 
+        [qKey]: "✨ UI TEST: Đây là nội dung giải thích giả lập. Nút bấm đã được khóa (disabled) và đổi text chuẩn 100%!" 
+      }));
+      toast.success("Test UI thành công! Nút đã hoạt động chuẩn.");
+      setIsExplaining(false);
+    }, 3000);
+    return;
+
+    /* Logic thật tạm thời comment
     try {
       const res = await fetch("/api/ai/explain", {
         method: "POST",
@@ -417,8 +430,9 @@ export default function QuizPage() {
     } catch (_err) {
       toast.error("Có lỗi kết nối đến AI Tutor.");
     } finally {
-      setIsExplaining(false); // 2. LUÔN LUÔN tắt loading dù thành công hay thất bại
+      setIsExplaining(false);
     }
+    */
   };
 
   const toggleBookmark = async (question: Question) => {
