@@ -12,6 +12,7 @@ import ReactFlow, {
   Connection,
   Edge,
   Panel,
+  Node,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { db } from "@/lib/firebase";
@@ -54,8 +55,8 @@ export default function KnowledgeGraphAdmin() {
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   // Load subjects
   useEffect(() => {
@@ -87,27 +88,29 @@ export default function KnowledgeGraphAdmin() {
         
         if (mapDoc.exists()) {
           const mapData = mapDoc.data() as KnowledgeMap;
-          setNodes(mapData.nodes.map(n => ({
+          const rfNodes: Node[] = mapData.nodes.map(n => ({
             id: n.id,
             position: n.position || { x: Math.random() * 400, y: Math.random() * 400 },
             data: { label: n.label, type: n.type, status: n.status || 'unlocked' },
             style: getNodeStyle(n.status || 'unlocked')
-          })) as any);
-          setEdges(mapData.edges.map(e => ({
+          }));
+          const rfEdges: Edge[] = mapData.edges.map(e => ({
             ...e,
             animated: true,
             style: { stroke: '#6c5ce7', strokeWidth: 2 },
             markerEnd: { type: MarkerType.ArrowClosed, color: '#6c5ce7' }
-          })) as any);
+          }));
+          setNodes(rfNodes);
+          setEdges(rfEdges);
         } else {
           // Default nodes if no map exists
-          const defaultNodes = mats.map((m, index) => ({
+          const defaultNodes: Node[] = mats.map((m, index) => ({
             id: m.id,
             position: { x: 100, y: index * 100 },
             data: { label: m.title, type: m.type, status: 'unlocked' },
             style: getNodeStyle('unlocked')
           }));
-          setNodes(defaultNodes as any);
+          setNodes(defaultNodes);
           setEdges([]);
         }
       } catch (err) {
@@ -262,7 +265,7 @@ export default function KnowledgeGraphAdmin() {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             fitView
-            colorMode="dark"
+            style={{ backgroundColor: '#10101f', color: '#fff' }}
           >
             <Background color="#1a1a2e" gap={20} />
             <Controls className="!bg-[#10101f] !border-white/10 !fill-white" />
