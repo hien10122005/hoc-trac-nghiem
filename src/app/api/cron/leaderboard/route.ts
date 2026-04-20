@@ -5,11 +5,10 @@ import { collection, getDocs, orderBy, limit, query, setDoc, doc, serverTimestam
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const secret = searchParams.get('secret');
+  const authHeader = request.headers.get('Authorization');
 
   // Verify CRON_SECRET for security
-  if (secret !== process.env.CRON_SECRET && process.env.NODE_ENV === 'production') {
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && process.env.NODE_ENV === 'production') {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 

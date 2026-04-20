@@ -44,7 +44,7 @@ export default function Leaderboard() {
         </div>
         <div>
           <h3 className="text-lg font-bold text-white leading-tight">Bảng xếp hạng</h3>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Top 10 học viên thực thụ</p>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">🔄 Cập nhật lúc 00:00 mỗi ngày</p>
         </div>
       </div>
 
@@ -95,8 +95,13 @@ export default function Leaderboard() {
             );
           })
         ) : (
-          <div className="text-center py-10">
-            <p className="text-slate-500 text-sm italic">Chưa có bảng xếp hạng.</p>
+          <div className="text-center py-10 px-4">
+            <div className="h-12 w-12 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4 text-slate-500">
+               <Trophy size={20} className="opacity-20" />
+            </div>
+            <p className="text-slate-400 text-sm font-medium leading-relaxed">
+              Bảng xếp hạng đang được tính toán.<br/>Hãy quay lại vào ngày mai!
+            </p>
           </div>
         )}
       </div>
