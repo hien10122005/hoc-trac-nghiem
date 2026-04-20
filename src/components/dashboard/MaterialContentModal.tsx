@@ -147,7 +147,7 @@ export default function MaterialContentModal({ isOpen, onClose, title, content, 
             <div className="flex-1 flex overflow-hidden">
               {/* Reading Content */}
               <div className={`flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar bg-[#0f0f1a] transition-all duration-500 ${showNotes ? "hidden md:block" : "block"}`}>
-                <article className="prose prose-invert prose-emerald max-w-none 
+                <article className={`prose prose-invert prose-emerald max-w-none 
                   prose-headings:text-white prose-headings:font-bold 
                   prose-p:text-slate-300 prose-p:leading-relaxed 
                   prose-strong:text-emerald-400 prose-strong:font-bold
@@ -155,7 +155,7 @@ export default function MaterialContentModal({ isOpen, onClose, title, content, 
                   prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/5 prose-pre:rounded-2xl
                   prose-li:text-slate-400
                   prose-blockquote:border-l-emerald-500 prose-blockquote:bg-emerald-500/5 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:rounded-r-2xl prose-blockquote:italic
-                  prose-img:rounded-3xl prose-img:shadow-2xl prose-img:border prose-img:border-white/10"
+                  prose-img:rounded-3xl prose-img:shadow-2xl prose-img:border prose-img:border-white/10`}
                 >
                   <ReactMarkdown>{content}</ReactMarkdown>
                 </article>
