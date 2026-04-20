@@ -81,7 +81,7 @@ Yêu cầu:
     if (error.message?.includes("429")) {
       return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
     }
-    
+
     return NextResponse.json({ error: "Lỗi AI: " + (error.message || "Unknown error") }, { status: 500 });
   }
 }

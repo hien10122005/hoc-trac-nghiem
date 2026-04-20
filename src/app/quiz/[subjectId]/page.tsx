@@ -385,7 +385,9 @@ export default function QuizPage() {
     const question = state.questions[qIdx];
     const qKey = `${subjectId}_${qIdx}`;
     
+    // Guard: Nếu đã có kết quả hoặc đang loading -> chặn hoàn toàn
     if (aiExplanations[qKey]) return;
+    if (aiLoading[qKey]) return;
 
     setAiLoading(prev => ({ ...prev, [qKey]: true }));
     try {
@@ -660,20 +662,20 @@ export default function QuizPage() {
           {/* AI Explanation Section */}
           {(state.isFinished || state.reviewMode) && (
             <div className="space-y-4">
-               {!aiExplanations[`${subjectId}_${state.currentIdx}`] ? (
-                 <button 
-                  onClick={() => handleAIExplain(state.currentIdx)}
-                  disabled={aiLoading[`${subjectId}_${state.currentIdx}`]}
-                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] text-white text-sm font-bold shadow-lg shadow-[#6c5ce7]/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
-                 >
-                   {aiLoading[`${subjectId}_${state.currentIdx}`] ? (
-                     <Loader2 size={18} className="animate-spin" />
-                   ) : (
-                     <Sparkles size={18} />
-                   )}
-                   <span>{aiLoading[`${subjectId}_${state.currentIdx}`] ? "QIU AI đang phân tích..." : "Giải thích bằng AI"}</span>
-                 </button>
-               ) : (
+                {!aiExplanations[`${subjectId}_${state.currentIdx}`] ? (
+                  <button 
+                   onClick={() => handleAIExplain(state.currentIdx)}
+                   disabled={!!aiLoading[`${subjectId}_${state.currentIdx}`]}
+                   className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] text-white text-sm font-bold shadow-lg shadow-[#6c5ce7]/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 disabled:hover:scale-100"
+                  >
+                    {aiLoading[`${subjectId}_${state.currentIdx}`] ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={18} />
+                    )}
+                    <span>{aiLoading[`${subjectId}_${state.currentIdx}`] ? "✨ Đang phân tích..." : "✨ Giải thích bằng AI"}</span>
+                  </button>
+                ) : (
                  <div className="p-6 rounded-3xl bg-[#6c5ce7]/5 border border-[#6c5ce7]/20 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-10">
                        <Brain size={80} className="text-[#6c5ce7]" />
