@@ -58,6 +58,8 @@ export default function QuestionsPage() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [tempQuestions, setTempQuestions] = useState<Question[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
@@ -155,20 +157,9 @@ export default function QuestionsPage() {
         throw new Error("Không có câu hỏi hợp lệ nào được tìm thấy. Vui lòng kiểm tra lại cấu trúc file!");
       }
 
-      toast.loading(`Đang lưu ${addedCount} câu hỏi lên hệ thống...`, { id: toastId });
-      
-      const docRef = doc(db, "quizzes", selectedSubjectId);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const existingQs = docSnap.data().questions || [];
-        await updateDoc(docRef, { questions: [...existingQs, ...newQuestions], updatedAt: serverTimestamp() });
-      } else {
-        await setDoc(docRef, { questions: newQuestions, updatedAt: serverTimestamp() });
-      }
-      
-      setQuestions(prev => [...prev, ...newQuestions]);
-
-      toast.success(`Đã thêm thành công ${addedCount} câu hỏi!`, { id: toastId });
+      setTempQuestions(newQuestions);
+      setIsPreviewOpen(true);
+      toast.success(`Đã đọc ${addedCount} câu hỏi. Vui lòng kiểm tra lại trước khi lưu!`, { id: toastId });
     } catch (error: unknown) {
       const e = error as Error;
       console.error(e);
@@ -176,6 +167,36 @@ export default function QuestionsPage() {
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleConfirmSaveBulk = async () => {
+    if (!selectedSubjectId || tempQuestions.length === 0) return;
+    
+    setIsSubmitting(true);
+    const toastId = toast.loading(`Đang lưu ${tempQuestions.length} câu hỏi...`);
+    
+    try {
+      const docRef = doc(db, "quizzes", selectedSubjectId);
+      const docSnap = await getDoc(docRef);
+      
+      const existingQs = docSnap.exists() ? (docSnap.data().questions || []) : [];
+      const updatedQs = [...existingQs, ...tempQuestions];
+      
+      await setDoc(docRef, { 
+        questions: updatedQs, 
+        updatedAt: serverTimestamp() 
+      }, { merge: true });
+      
+      setQuestions(updatedQs);
+      setIsPreviewOpen(false);
+      setTempQuestions([]);
+      toast.success(`Đã lưu thành công ${tempQuestions.length} câu hỏi!`, { id: toastId });
+    } catch (error) {
+      console.error("Error saving bulk questions:", error);
+      toast.error("Lỗi khi lưu dữ liệu lên server!", { id: toastId });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -629,6 +650,88 @@ export default function QuestionsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal for Bulk Upload */}
+      {isPreviewOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#0a0a14]/80 backdrop-blur-xl p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-5xl rounded-[2.5rem] bg-[#10101f] border border-white/10 shadow-3xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-8 border-b border-white/5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-[#00cec9]/10 flex items-center justify-center text-[#00cec9]">
+                  <FileSpreadsheet size={28} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white">Kiểm tra dữ liệu chuẩn bị tải lên</h3>
+                  <p className="text-sm text-slate-400 mt-1">Vui lòng rà soát lại nội dung và đáp án trước khi nhấn xác nhận lưu.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsPreviewOpen(false)}
+                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-8 custom-scrollbar">
+              <table className="w-full text-left border-separate border-spacing-y-3">
+                <thead>
+                  <tr className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] px-4">
+                    <th className="pb-4 pl-6">STT</th>
+                    <th className="pb-4">Nội dung câu hỏi</th>
+                    <th className="pb-4">Đáp án đúng</th>
+                    <th className="pb-4 pr-6 text-right">Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tempQuestions.map((q, i) => (
+                    <tr key={i} className="group bg-white/5 hover:bg-white/[0.08] transition-colors rounded-2xl overflow-hidden">
+                      <td className="py-5 pl-6 rounded-l-2xl">
+                         <span className="h-8 w-8 rounded-lg bg-black/20 flex items-center justify-center text-xs font-bold text-slate-400 border border-white/5">
+                           {i + 1}
+                         </span>
+                      </td>
+                      <td className="py-5 pr-4 max-w-md">
+                         <p className="text-sm font-bold text-white line-clamp-2 leading-relaxed">{q.content}</p>
+                      </td>
+                      <td className="py-5">
+                         <div className="flex items-center gap-2">
+                            <span className="h-6 w-6 rounded-md bg-[#00cec9] text-[#0a0a14] flex items-center justify-center text-[10px] font-bold">
+                               {String.fromCharCode(65 + q.correctAnswer)}
+                            </span>
+                            <span className="text-sm text-slate-400 truncate max-w-[200px]">{q.options[q.correctAnswer]}</span>
+                         </div>
+                      </td>
+                      <td className="py-5 pr-6 text-right rounded-r-2xl">
+                         <span className="text-[10px] text-slate-500 uppercase font-bold bg-black/20 px-2 py-1 rounded">
+                            {q.options.length} đáp án
+                         </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-8 bg-white/[0.02] border-t border-white/5 flex gap-4 shrink-0">
+               <button 
+                onClick={() => setIsPreviewOpen(false)}
+                className="flex-1 px-8 py-4 rounded-2xl bg-white/5 border border-white/5 text-slate-400 font-bold hover:bg-white/10 hover:text-white transition-all shadow-xl"
+              >
+                Hủy bỏ
+              </button>
+              <button 
+                onClick={handleConfirmSaveBulk}
+                disabled={isSubmitting}
+                className="flex-[2] px-8 py-4 rounded-2xl bg-gradient-to-r from-[#00cec9] to-[#6c5ce7] text-white font-bold shadow-2xl shadow-[#00cec9]/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
+                <span>Xác nhận & Lưu {tempQuestions.length} câu hỏi lên Server</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

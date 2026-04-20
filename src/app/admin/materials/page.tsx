@@ -16,7 +16,10 @@ import {
   FileCode,
   Globe,
   Download,
-  AlertCircle
+  AlertCircle,
+  BookOpen,
+  FileText as FileIcon,
+  PlayCircle
 } from "lucide-react";
 import { 
   collection, 
@@ -43,9 +46,12 @@ interface Material {
   description: string;
   url: string;
   subjectId: string;
-  type: string; // 'pdf' | 'link' | 'docx'
+  type: string; // 'pdf' | 'link' | 'docx' | 'youtube' | 'reading'
+  content?: string; // Markdown content for reading lessons
   createdAt: any;
 }
+
+type MaterialCategory = 'all' | 'video' | 'document' | 'reading';
 
 export default function MaterialsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -62,7 +68,9 @@ export default function MaterialsPage() {
   const [subjectId, setSubjectId] = useState("");
   const [url, setUrl] = useState("");
   const [type, setType] = useState("link");
+  const [content, setContent] = useState(""); // Markdown content
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<MaterialCategory>('all');
 
   // Fetch subjects and materials
   useEffect(() => {
@@ -90,6 +98,7 @@ export default function MaterialsPage() {
     setSubjectId("");
     setUrl("");
     setType("link");
+    setContent("");
   };
 
   const handleOpenEdit = (m: Material) => {
@@ -97,8 +106,9 @@ export default function MaterialsPage() {
     setTitle(m.title);
     setDescription(m.description);
     setSubjectId(m.subjectId);
-    setUrl(m.url);
+    setUrl(m.url || "");
     setType(m.type);
+    setContent(m.content || "");
     setIsModalOpen(true);
   };
 
@@ -116,8 +126,9 @@ export default function MaterialsPage() {
           title,
           description,
           subjectId,
-          url,
+          url: type === 'reading' ? "" : url,
           type,
+          content: type === 'reading' ? content : "",
           updatedAt: serverTimestamp(),
         });
         toast.success("Cập nhật tài liệu thành công!");
@@ -126,8 +137,9 @@ export default function MaterialsPage() {
           title,
           description,
           subjectId,
-          url,
+          url: type === 'reading' ? "" : url,
           type,
+          content: type === 'reading' ? content : "",
           createdAt: serverTimestamp(),
         });
         toast.success("Thêm tài liệu thành công!");
@@ -157,8 +169,33 @@ export default function MaterialsPage() {
     const matchesSearch = m.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          m.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSubject = !selectedSubjectFilter || m.subjectId === selectedSubjectFilter;
-    return matchesSearch && matchesSubject;
+    
+    let matchesTab = true;
+    if (activeTab === 'video') matchesTab = m.type === 'youtube';
+    else if (activeTab === 'document') matchesTab = ['pdf', 'docx', 'link'].includes(m.type);
+    else if (activeTab === 'reading') matchesTab = m.type === 'reading';
+
+    return matchesSearch && matchesSubject && matchesTab;
   });
+
+  const getBadgeStyles = (type: string) => {
+    switch (type) {
+      case 'youtube': return "bg-red-500/10 text-red-500 border-red-500/20";
+      case 'reading': return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+      case 'pdf': return "bg-blue-500/10 text-blue-500 border-blue-500/20";
+      default: return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+    }
+  };
+
+  const getTypeName = (type: string) => {
+    switch (type) {
+      case 'youtube': return "Video";
+      case 'reading': return "Bài đọc";
+      case 'pdf': return "PDF";
+      case 'docx': return "Word";
+      default: return "Link";
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
@@ -170,15 +207,30 @@ export default function MaterialsPage() {
           <p className="text-slate-400 mt-1">Quản lý sách, tài liệu học tập và file download cho học viên.</p>
         </div>
         
-        <button 
-          onClick={() => { resetForm(); setIsModalOpen(true); }}
-          className="group flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#6c5ce7] to-[#5b4bc4] px-5 py-3 text-sm font-bold text-white transition-all hover:scale-105 active:scale-95 shadow-lg shadow-[#6c5ce7]/30"
-        >
-          <div className="bg-white/20 rounded-lg p-1 group-hover:bg-white/30 transition-colors">
-            <Plus size={18} />
-          </div>
-          <span>Thêm tài liệu mới</span>
         </button>
+      </div>
+
+      {/* Category Tabs */}
+      <div className="flex p-1.5 bg-white/5 border border-white/5 rounded-2xl w-fit">
+        {[
+          { id: 'all', label: 'Tất cả', icon: Database },
+          { id: 'video', label: 'Video', icon: PlayCircle },
+          { id: 'document', label: 'Tài liệu', icon: FileIcon },
+          { id: 'reading', label: 'Bài đọc', icon: BookOpen },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as MaterialCategory)}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              activeTab === tab.id
+                ? "bg-[#6c5ce7] text-white shadow-lg shadow-[#6c5ce7]/20"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <tab.icon size={16} />
+            <span>{tab.label}</span>
+          </button>
+        ))}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
@@ -224,7 +276,12 @@ export default function MaterialsPage() {
                     {m.type === 'pdf' ? <FileText size={24} /> : m.type === 'docx' ? <FileCode size={24} /> : m.type === 'youtube' ? <Video size={24} className="text-red-500" /> : <LinkIcon size={24} />}
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white group-hover:text-[#aca3ff] transition-colors">{m.title}</h3>
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-bold text-white group-hover:text-[#aca3ff] transition-colors">{m.title}</h3>
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${getBadgeStyles(m.type)}`}>
+                        {getTypeName(m.type)}
+                      </span>
+                    </div>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded">{subjectName}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-700" />
@@ -234,9 +291,11 @@ export default function MaterialsPage() {
                 </div>
                 
                 <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                  <a href={m.url} target="_blank" rel="noopener noreferrer" className="p-3 text-slate-400 hover:text-[#00cec9] hover:bg-[#00cec9]/10 rounded-xl transition-all flex items-center gap-2 text-sm bg-white/5">
-                    <Download size={16} /> <span className="sm:hidden lg:inline">Mở tài liệu</span>
-                  </a>
+                  {m.type !== 'reading' && (
+                    <a href={m.url} target="_blank" rel="noopener noreferrer" className="p-3 text-slate-400 hover:text-[#00cec9] hover:bg-[#00cec9]/10 rounded-xl transition-all flex items-center gap-2 text-sm bg-white/5">
+                      <Download size={16} /> <span className="sm:hidden lg:inline">Mở tài liệu</span>
+                    </a>
+                  )}
                   <button onClick={() => handleOpenEdit(m)} className="p-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
                     <Edit3 size={18} />
                   </button>
@@ -306,27 +365,43 @@ export default function MaterialsPage() {
                     >
                       <option value="link">Link trang web</option>
                       <option value="youtube">Video YouTube</option>
+                      <option value="reading">Bài đọc (Markdown)</option>
                       <option value="pdf">Tài liệu PDF</option>
                       <option value="docx">Văn bản Word</option>
                     </select>
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2 px-1">Đường dẫn tài liệu (URL) <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                    <input 
-                      type="url" 
-                      required
-                      placeholder="https://drive.google.com/..."
-                      className="w-full rounded-xl border border-white/5 bg-black/40 py-3.5 pl-11 pr-4 text-sm text-[#00cec9] outline-none focus:border-[#00cec9]/50 focus:bg-black transition-all"
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                    />
+                {type !== 'reading' ? (
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2 px-1">Đường dẫn tài liệu (URL) <span className="text-red-500">*</span></label>
+                    <div className="relative">
+                      <Globe className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                      <input 
+                        type="url" 
+                        required
+                        placeholder="https://drive.google.com/..."
+                        className="w-full rounded-xl border border-white/5 bg-black/40 py-3.5 pl-11 pr-4 text-sm text-[#00cec9] outline-none focus:border-[#00cec9]/50 focus:bg-black transition-all"
+                        value={url}
+                        onChange={(e) => setUrl(e.target.value)}
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-2 px-1 italic">Mẹo: Dán link Google Drive chia sẻ ở chế độ "Bất kỳ ai có liên kết".</p>
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-2 px-1 italic">Mẹo: Dán link Google Drive chia sẻ ở chế độ "Bất kỳ ai có liên kết".</p>
-                </div>
+                ) : (
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2 px-1">Nội dung bài viết (Markdown) <span className="text-red-500">*</span></label>
+                    <textarea 
+                      required
+                      placeholder="# Tiêu đề bài viết... &#10;&#10;Nội dung bài đọc hỗ trợ Markdown tại đây..."
+                      rows={10}
+                      className="w-full rounded-xl border border-white/5 bg-black/40 py-3.5 px-4 text-sm text-white outline-none focus:border-[#6c5ce7]/50 focus:bg-black transition-all font-mono"
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                    />
+                    <p className="text-[10px] text-slate-500 mt-2 px-1 italic">Hỗ trợ định dạng tiêu đề (#), danh sách (-), in đậm (**)...</p>
+                  </div>
+                )}
 
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2 px-1">Mô tả ngắn</label>

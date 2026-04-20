@@ -29,8 +29,10 @@ import {
   WifiOff,
   Wifi,
   Sparkles,
-  Brain
+  Brain,
+  Bookmark
 } from "lucide-react";
+import { arrayUnion, arrayRemove } from "firebase/firestore";
 import toast from "react-hot-toast";
 import confetti from "canvas-confetti";
 
@@ -79,6 +81,7 @@ export default function QuizPage() {
 
   const [aiExplanations, setAiExplanations] = useState<Record<string, string>>({});
   const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
+  const [savedQuestionIds, setSavedQuestionIds] = useState<Set<string>>(new Set());
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -137,8 +140,22 @@ export default function QuizPage() {
 
   // Auth check
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+      if (authUser) {
+        setUser(authUser);
+        // Fetch saved questions
+        try {
+          const statsRef = doc(db, "user_stats", authUser.uid);
+          const statsSnap = await getDoc(statsRef);
+          if (statsSnap.exists()) {
+             const saved = statsSnap.data().savedQuestions || [];
+             // We only need the IDs for the quick toggle check
+             setSavedQuestionIds(new Set(saved.map((item: any) => item.questionId)));
+          }
+        } catch (error) {
+          console.warn("Could not fetch saved questions:", error);
+        }
+      }
       else router.push("/login");
     });
     return () => unsubscribe();
@@ -393,6 +410,64 @@ export default function QuizPage() {
     }
   };
 
+  const toggleBookmark = async (question: Question) => {
+    if (!user) return;
+    const userId = (user as any).uid;
+    const qId = question.id;
+    const isBookmarked = savedQuestionIds.has(qId);
+    
+    const statsRef = doc(db, "user_stats", userId);
+    
+    try {
+      if (isBookmarked) {
+        // Remove
+        await setDoc(statsRef, {
+          savedQuestions: arrayRemove({
+            subjectId,
+            questionId: qId,
+            content: question.content,
+            savedAt: new Date().toISOString()
+          })
+        }, { merge: true });
+        
+        // Note: arrayRemove needs the EXACT object to match. 
+        // This is tricky if savedAt differs. 
+        // BETTER: Fetch, Filter, Update. Or use a separate collection.
+        // Let's use the safer way for Saved Questions: Fetch -> Filter -> Set
+        const snap = await getDoc(statsRef);
+        if (snap.exists()) {
+            const saved = snap.data().savedQuestions || [];
+            const updated = saved.filter((item: any) => item.questionId !== qId);
+            await updateDoc(statsRef, { savedQuestions: updated });
+        }
+
+        setSavedQuestionIds(prev => {
+          const next = new Set(prev);
+          next.delete(qId);
+          return next;
+        });
+        toast.success("Đã bỏ lưu câu hỏi");
+      } else {
+        // Add
+        const newItem = {
+          subjectId,
+          questionId: qId,
+          content: question.content,
+          savedAt: new Date().toISOString()
+        };
+        await setDoc(statsRef, {
+          savedQuestions: arrayUnion(newItem)
+        }, { merge: true });
+        
+        setSavedQuestionIds(prev => new Set(prev).add(qId));
+        toast.success("Đã lưu câu hỏi vào kho cá nhân!", { icon: '🔖' });
+      }
+    } catch (error) {
+      console.error("Error toggling bookmark:", error);
+      toast.error("Không thể cập nhật danh sách câu hỏi.");
+    }
+  };
+
   // UI States
   if (loading) {
     return (
@@ -504,8 +579,20 @@ export default function QuizPage() {
           
           {/* Question Info */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-[#6c5ce7] uppercase tracking-widest bg-[#6c5ce7]/10 px-2 py-0.5 rounded">Câu hỏi {state.currentIdx + 1} / {state.questions.length}</span>
+              
+              <button 
+                onClick={() => toggleBookmark(currentQ)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
+                  savedQuestionIds.has(currentQ.id) 
+                    ? "bg-[#6c5ce7]/20 border-[#6c5ce7]/40 text-[#aca3ff]" 
+                    : "bg-white/5 border-white/5 text-slate-500 hover:text-white"
+                }`}
+              >
+                <Bookmark size={16} fill={savedQuestionIds.has(currentQ.id) ? "currentColor" : "none"} />
+                <span className="text-[10px] font-bold uppercase tracking-widest">{savedQuestionIds.has(currentQ.id) ? "Đã lưu" : "Lưu câu hỏi"}</span>
+              </button>
             </div>
             <h2 className="text-2xl md:text-3xl font-bold leading-snug tracking-tight">
               {currentQ.content}

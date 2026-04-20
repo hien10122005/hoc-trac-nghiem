@@ -11,7 +11,8 @@ import {
   X, 
   ChevronRight,
   GraduationCap,
-  BarChart3
+  BarChart3,
+  Bookmark
 } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -63,6 +64,7 @@ export default function DashboardLayout({
     { name: "Trang chủ", icon: Home, href: "/dashboard" },
     { name: "Thư viện", icon: BookOpen, href: "/dashboard/library" },
     { name: "Phân tích", icon: BarChart3, href: "/dashboard/analytics" },
+    { name: "Câu hỏi đã lưu", icon: Bookmark, href: "/dashboard/saved" },
     { name: "Hồ sơ cá nhân", icon: User, href: "/dashboard/profile" },
     { name: "Cài đặt tài khoản", icon: Settings, href: "/dashboard/settings" },
   ];
