@@ -135,14 +135,8 @@ export default function AnalyticsPage() {
             return dateB - dateA;
           });
 
-          // Apply limit client-side if fallback was used
+          // Apply limit client-side (most recent first)
           data = data.slice(0, 20);
-            const dateB = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
-            return dateA - dateB;
-          });
-
-          // Limit to 20 if we fetched everything
-          if (data.length > 20) data = data.slice(-20);
 
           setResults(data);
         } catch (err: unknown) {
