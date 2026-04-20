@@ -1,7 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Trophy, Medal, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface LeaderboardEntry {
   userId: string;
@@ -9,12 +10,25 @@ interface LeaderboardEntry {
   totalScore: number;
 }
 
-interface LeaderboardProps {
-  entries: LeaderboardEntry[];
-  loading: boolean;
-}
+export default function Leaderboard() {
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default function Leaderboard({ entries, loading }: LeaderboardProps) {
+  useEffect(() => {
+    async function fetchLeaderboard() {
+      try {
+        const snap = await getDoc(doc(db, "system_data", "leaderboard_snapshot"));
+        if (snap.exists()) {
+          setEntries(snap.data().entries || []);
+        }
+      } catch (err) {
+        console.error("Leaderboard fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchLeaderboard();
+  }, []);
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -28,7 +42,7 @@ export default function Leaderboard({ entries, loading }: LeaderboardProps) {
         </div>
         <div>
           <h3 className="text-lg font-bold text-white leading-tight">Bảng xếp hạng</h3>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Top 5 học viên xuất sắc nhất</p>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Top 10 học viên thực thụ</p>
         </div>
       </div>
 

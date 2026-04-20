@@ -31,6 +31,7 @@ import {
   orderBy, 
   deleteDoc, 
   doc,
+  setDoc,
   serverTimestamp 
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -104,6 +105,11 @@ export default function SubjectsPage() {
         createdAt: serverTimestamp(),
       });
       
+      // Notify system update
+      await setDoc(doc(db, "system_metadata", "updates"), { 
+        lastUpdated: serverTimestamp() 
+      }, { merge: true });
+      
       // Reset & Close
       setName("");
       setDescription("");
@@ -122,6 +128,10 @@ export default function SubjectsPage() {
     if (confirm(`Bạn có chắc chắn muốn xóa môn học "${name}"? Thao tác này không thể hoàn tác.`)) {
       try {
         await deleteDoc(doc(db, "subjects", id));
+        // Notify system update
+        await setDoc(doc(db, "system_metadata", "updates"), { 
+          lastUpdated: serverTimestamp() 
+        }, { merge: true });
       } catch (error) {
         console.error("Error deleting subject:", error);
       }

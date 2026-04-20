@@ -6,7 +6,10 @@ import {
   collection, 
   onSnapshot, 
   query, 
-  orderBy
+  orderBy,
+  getDoc,
+  doc,
+  getDocs
 } from "firebase/firestore";
 import { auth, db, getCachedDocs } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
@@ -16,6 +19,8 @@ import { Loader2, BookOpen, GraduationCap } from "lucide-react";
 import HeroBanner from "@/components/dashboard/HeroBanner";
 import SubjectGrid from "@/components/dashboard/SubjectGrid";
 import MaterialGrid from "@/components/dashboard/MaterialGrid";
+import ProgressRadar from "@/components/dashboard/ProgressRadar";
+import Leaderboard from "@/components/dashboard/Leaderboard";
 
 interface Subject {
   id: string;
@@ -48,13 +53,30 @@ export default function DashboardPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // Fetch Subjects
+  // Fetch Subjects with Smart Sync
   useEffect(() => {
     async function fetchSubjects() {
       if (!user) return;
       try {
+        // 1. Check for updates
+        const updateDoc = await getDoc(doc(db, "system_metadata", "updates"));
+        const lastServerUpdate = updateDoc.exists() ? updateDoc.data()?.lastUpdated?.toMillis() : 0;
+        const lastLocalSync = parseInt(localStorage.getItem('sys_lastUpdated_subjects') || '0');
+        
         const qSub = query(collection(db, "subjects"), orderBy("name", "asc"));
-        const snapshot = await getCachedDocs(qSub);
+        let snapshot;
+
+        if (lastServerUpdate > lastLocalSync || !lastLocalSync) {
+          // Force server fetch
+          console.log("Smart Sync: Data changed or first sync. Fetching from Server...");
+          snapshot = await getDocs(qSub);
+          localStorage.setItem('sys_lastUpdated_subjects', lastServerUpdate.toString());
+        } else {
+          // Use cache
+          console.log("Smart Sync: No changes since last visit. Using Cache.");
+          snapshot = await getCachedDocs(qSub);
+        }
+
         const subjectsData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -62,6 +84,10 @@ export default function DashboardPage() {
         setSubjects(subjectsData);
       } catch (error) {
         console.error("Error fetching subjects:", error);
+        // Fallback to cache if server fails
+        const qSub = query(collection(db, "subjects"), orderBy("name", "asc"));
+        const cachedSnap = await getCachedDocs(qSub);
+        setSubjects(cachedSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any);
       } finally {
         setSubjectsLoading(false);
       }
@@ -91,6 +117,18 @@ export default function DashboardPage() {
     <div className="space-y-10">
       {/* TOP: Hero Banner */}
       <HeroBanner userName={(user as any)?.email?.split('@')[0] || "Học viên"} />
+
+      {/* Stats & Rankings Section */}
+      {viewMode === 'quiz' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+          <div className="h-[450px]">
+            <ProgressRadar />
+          </div>
+          <div className="h-[450px]">
+            <Leaderboard />
+          </div>
+        </div>
+      )}
 
       {/* Mode Tabs */}
       <div className="flex p-1.5 bg-white/5 border border-white/5 rounded-2xl w-fit mx-auto">

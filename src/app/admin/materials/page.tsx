@@ -30,6 +30,7 @@ import {
   orderBy, 
   deleteDoc, 
   doc,
+  setDoc,
   serverTimestamp,
   updateDoc
 } from "firebase/firestore";
@@ -147,6 +148,12 @@ export default function MaterialsPage() {
         });
         toast.success("Thêm tài liệu thành công!");
       }
+
+      // Notify system update
+      await setDoc(doc(db, "system_metadata", "updates"), { 
+        lastUpdated: serverTimestamp() 
+      }, { merge: true });
+
       setIsModalOpen(false);
       resetForm();
     } catch (error: any) {
@@ -213,6 +220,12 @@ export default function MaterialsPage() {
     if (confirm("Bạn có chắc chắn muốn xóa tài liệu này?")) {
       try {
         await deleteDoc(doc(db, "materials", id));
+        
+        // Notify system update
+        await setDoc(doc(db, "system_metadata", "updates"), { 
+          lastUpdated: serverTimestamp() 
+        }, { merge: true });
+
         toast.success("Đã xóa tài liệu.");
       } catch (error) {
         console.error("Error deleting material:", error);
