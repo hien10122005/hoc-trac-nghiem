@@ -591,8 +591,6 @@ export default function QuestionsPage() {
                     onChange={(e) => setContent(e.target.value)}
                   />
                 </div>
-
-                </div>
                 
                 {/* Bloom Level Selection */}
                 <div>
