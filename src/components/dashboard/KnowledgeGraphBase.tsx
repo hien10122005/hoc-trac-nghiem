@@ -29,8 +29,8 @@ interface Props {
  * Hỗ trợ tương tác: Click để học, Zoom/Pan.
  */
 export default function KnowledgeGraphBase({ subjectId }: Props) {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -42,17 +42,15 @@ export default function KnowledgeGraphBase({ subjectId }: Props) {
         const data = await getKnowledgeMap(subjectId);
         if (data && data.nodes && data.nodes.length > 0) {
           // 1. Chuyển đổi Nodes
-          const rfNodes = data.nodes.map((n: KnowledgeNode) => ({
+          const rfNodes: Node[] = data.nodes.map((n: KnowledgeNode) => ({
             id: n.id,
             position: n.position || { x: 0, y: 0 },
             data: { label: n.label, status: n.status, type: n.type },
             style: getNodeStyle(n.status),
-            // Custom data for better styling
             className: n.status === 'completed' ? 'node-glow-completed' : '',
           }));
 
-          // 2. Chuyển đổi Edges
-          const rfEdges = data.edges.map((e) => {
+          const rfEdges: Edge[] = data.edges.map((e) => {
             const sourceNode = data.nodes.find(node => node.id === e.source);
             const isCompleted = sourceNode?.status === 'completed';
             const isLocked = sourceNode?.status === 'locked';
@@ -62,7 +60,7 @@ export default function KnowledgeGraphBase({ subjectId }: Props) {
               source: e.source,
               target: e.target,
               label: e.label,
-              type: 'smoothstep', // Đường nối mềm mại
+              type: 'smoothstep',
               animated: !isLocked,
               style: { 
                 stroke: isCompleted ? '#00cec9' : isLocked ? 'rgba(255,255,255,0.05)' : '#6c5ce7', 
@@ -77,8 +75,8 @@ export default function KnowledgeGraphBase({ subjectId }: Props) {
             };
           });
 
-          setNodes(rfNodes as any);
-          setEdges(rfEdges as any);
+          setNodes(rfNodes);
+          setEdges(rfEdges);
         }
       } catch (err) {
         console.error("Lỗi khi tải sơ đồ:", err);
@@ -174,17 +172,17 @@ export default function KnowledgeGraphBase({ subjectId }: Props) {
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         fitView
-        colorMode="dark"
+        style={{ backgroundColor: '#10101f' }}
         minZoom={0.2}
         maxZoom={2}
       >
-        <Background color="#10101f" gap={28} size={1} />
+        <Background color="#1a1a2e" gap={28} size={1} />
         <Controls 
-           className="!bg-[#10101f]/80 !border-white/10 !fill-white !rounded-xl overflow-hidden !left-6 !bottom-6"
+           className="!bg-[#1a1a2e]/80 !border-white/10 !fill-white !rounded-xl overflow-hidden !left-6 !bottom-6"
            showInteractive={false}
         />
         <MiniMap 
-          nodeColor={(node: any) => {
+          nodeColor={(node: Node) => {
             if (node.data?.status === 'completed') return '#00cec9';
             if (node.data?.status === 'unlocked') return '#6c5ce7';
             return '#1a1a2e';
