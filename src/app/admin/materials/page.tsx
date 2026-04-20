@@ -207,6 +207,15 @@ export default function MaterialsPage() {
           <p className="text-slate-400 mt-1">Quản lý sách, tài liệu học tập và file download cho học viên.</p>
         </div>
         
+        <button 
+          onClick={() => {
+            resetForm();
+            setIsModalOpen(true);
+          }}
+          className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] px-6 py-3.5 text-sm font-bold text-white transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-[#6c5ce7]/20"
+        >
+          <Plus size={20} />
+          <span>Thêm tài liệu</span>
         </button>
       </div>
 
