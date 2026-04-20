@@ -20,6 +20,7 @@ import SubjectGrid from "@/components/dashboard/SubjectGrid";
 import MaterialGrid from "@/components/dashboard/MaterialGrid";
 import ProgressRadar from "@/components/dashboard/ProgressRadar";
 import Leaderboard from "@/components/dashboard/Leaderboard";
+import DashboardStats from "@/components/dashboard/DashboardStats";
 
 interface Subject {
   id: string;
@@ -122,14 +123,24 @@ export default function DashboardPage() {
       {/* TOP: Hero Banner */}
       <HeroBanner userName={user?.email?.split('@')[0] || "Học viên"} />
 
+      {/* DASHBOARD STATS: Real Metrics */}
+      {viewMode === 'quiz' && <DashboardStats />}
+
       {/* Stats & Rankings Section */}
       {viewMode === 'quiz' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
-          <div className="h-[450px]">
-            <ProgressRadar />
+        <div className="space-y-8 max-w-6xl mx-auto">
+          <div className="flex items-center gap-4">
+             <h2 className="text-xl font-black text-white tracking-tight">Hoạt động học tập</h2>
+             <div className="h-px flex-1 bg-white/5" />
           </div>
-          <div className="h-[450px]">
-            <Leaderboard />
+          
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-12 xl:col-span-6 h-[450px]">
+              <ProgressRadar />
+            </div>
+            <div className="lg:col-span-12 xl:col-span-6 h-[450px]">
+              <Leaderboard />
+            </div>
           </div>
         </div>
       )}

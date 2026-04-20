@@ -21,6 +21,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
+import { useUserStats } from "@/hooks/useUserStats";
 
 export default function DashboardLayout({
   children,
@@ -70,8 +71,9 @@ export default function DashboardLayout({
     { name: "Cài đặt tài khoản", icon: Settings, href: "/dashboard/settings" },
   ];
 
-  if (loading) return null;
+  const { progressPercent, loading: statsLoading } = useUserStats();
 
+  // Sidebar Header
   return (
     <div className="flex min-h-screen bg-[#07070a] text-[#f0f0fd] font-manrope selection:bg-[#6c5ce7]/30">
       <Toaster position="top-right" />
@@ -94,12 +96,12 @@ export default function DashboardLayout({
       <aside 
         className={`${
           isSidebarOpen ? "translate-x-0 w-72" : "-translate-x-full md:translate-x-0 md:w-20"
-        } fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/5 bg-[#0a0a14]/80 backdrop-blur-2xl transition-all duration-500 ease-in-out`}
+        } fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/5 bg-[#0a0a14]/80 backdrop-blur-3xl transition-all duration-500 ease-in-out`}
       >
         {/* Sidebar Header */}
         <div className="flex h-20 items-center justify-between px-6 border-b border-white/5">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br from-[#6c5ce7] to-[#00cec9] flex items-center justify-center shadow-lg shadow-[#6c5ce7]/20">
+            <div className="h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br from-[#6c5ce7] to-[#00cec9] flex items-center justify-center shadow-lg shadow-[#6c5ce7]/30">
               <GraduationCap className="text-white h-6 w-6" />
             </div>
             {isSidebarOpen && (
@@ -119,20 +121,38 @@ export default function DashboardLayout({
         {/* User Quick Profile */}
         {isSidebarOpen && (
           <div className="p-6">
-            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-10 w-10 rounded-full bg-[#6c5ce7]/20 border border-[#6c5ce7]/30 flex items-center justify-center text-[#6c5ce7] font-bold">
-                  {userData?.name?.charAt(0) || "U"}
+            <div className="rounded-[2rem] border border-white/5 bg-white/[0.03] p-5 shadow-2xl relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#6c5ce7]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              
+              <div className="flex items-center gap-4 mb-4 relative z-10">
+                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#6c5ce7] to-[#00cec9] p-0.5 shadow-lg">
+                   <div className="h-full w-full rounded-[14px] bg-[#0a0a14] flex items-center justify-center text-white font-black text-lg">
+                      {userData?.name?.charAt(0) || "U"}
+                   </div>
                 </div>
                 <div className="overflow-hidden">
-                  <p className="text-sm font-bold text-white truncate">{userData?.name || "Học viên"}</p>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Sinh viên</p>
+                  <p className="text-sm font-black text-white truncate leading-tight">{userData?.name || "Học viên"}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]" />
+                    <p className="text-[9px] text-[#00cec9] uppercase tracking-widest font-bold">Đang trực tuyến</p>
+                  </div>
                 </div>
               </div>
-              <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] w-2/3" />
+
+              <div className="space-y-2 relative z-10">
+                <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-1">
+                  <span>Tiến độ học tập</span>
+                  <span className="text-white">{progressPercent}%</span>
+                </div>
+                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progressPercent}%` }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                    className="h-full bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] shadow-[0_0_10px_#6c5ce7]" 
+                  />
+                </div>
               </div>
-              <p className="text-[10px] text-slate-500 mt-2 text-center uppercase tracking-tighter">Tiến độ học tập: 65%</p>
             </div>
           </div>
         )}
