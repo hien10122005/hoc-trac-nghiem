@@ -42,18 +42,6 @@ export default function SavedQuestionsPage() {
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionDetail | null>(null);
   const [subjects, setSubjects] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
-      if (authUser) {
-        setUser(authUser);
-        fetchSavedQuestions(authUser.uid);
-      } else {
-        setLoading(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
   const fetchSavedQuestions = async (uid: string) => {
     try {
       const statsRef = doc(db, "user_stats", uid);
@@ -82,6 +70,18 @@ export default function SavedQuestionsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+      if (authUser) {
+        setUser(authUser);
+        fetchSavedQuestions(authUser.uid);
+      } else {
+        setLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const removeBookmark = async (qId: string) => {
     if (!user) return;

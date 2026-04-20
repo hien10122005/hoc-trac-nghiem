@@ -22,7 +22,7 @@ export default function MaterialContentModal({ isOpen, onClose, title, content, 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [showNotes, setShowNotes] = useState(false);
   const notesRef = useRef<string>("");
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auth & Load existing notes
   useEffect(() => {
