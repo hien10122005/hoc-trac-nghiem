@@ -72,18 +72,18 @@ export default function AdminLayout({
           {isSidebarOpen ? (
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#6c5ce7] to-[#00cec9] flex items-center justify-center shadow-lg shadow-[#6c5ce7]/20 rotate-3">
-                <span className="text-white font-black text-xl">D</span>
+                <span className="text-white font-black text-xl">Q</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-black tracking-widest text-white uppercase leading-none">
-                  Admin <span className="text-[#6c5ce7]">DNC</span>
+                  <span className="text-[#6c5ce7]">QIU</span> ADMIN
                 </span>
                 <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">Management Hub</span>
               </div>
             </div>
           ) : (
             <div className="mx-auto h-10 w-10 rounded-2xl bg-gradient-to-br from-[#6c5ce7] to-[#00cec9] flex items-center justify-center shadow-lg">
-              <span className="text-white font-black text-xl">D</span>
+              <span className="text-white font-black text-xl">Q</span>
             </div>
           )}
         </div>
@@ -130,6 +130,16 @@ export default function AdminLayout({
             <LogOut size={22} className="group-hover:-translate-x-1 transition-transform" />
             {isSidebarOpen && <span className="text-sm font-semibold whitespace-nowrap">Đăng xuất</span>}
           </button>
+          
+          {isSidebarOpen && (
+            <div className="mt-4 px-3 py-4 rounded-xl bg-white/[0.02] border border-white/5">
+              <p className="text-[9px] text-slate-500 font-bold text-center leading-relaxed">
+                © 2026 <span className="text-white">QIU</span><br />
+                Phát triển và điều hành bởi <br />
+                <span className="text-[#00cec9]">PhanVanHien</span>
+              </p>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -169,8 +179,8 @@ export default function AdminLayout({
 
             <div className="flex items-center gap-3 pl-2">
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-semibold text-white">Admin Hiển</p>
-                <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Hệ thống quản trị</p>
+                <p className="text-sm font-semibold text-white">PhanVanHien</p>
+                <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Quản trị viên tối cao</p>
               </div>
               <div className="h-10 w-10 rounded-xl bg-[#1a1a2e] border border-white/10 p-0.5 shadow-xl">
                  <div className="flex h-full w-full items-center justify-center rounded-[9px] bg-gradient-to-br from-[#6c5ce7] to-[#00cec9]">

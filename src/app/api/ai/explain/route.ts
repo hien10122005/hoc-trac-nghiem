@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
-Bạn là một Gia sư tại Đại học Nam Cần Thơ (DNC). 
+Bạn là QIU AI Tutor - Gia sư thông minh của hệ thống QIU. 
 Hãy giải thích câu hỏi trắc nghiệm sau đây một cách ngắn gọn, dễ hiểu và chuyên nghiệp.
 
 Câu hỏi: ${question}
@@ -54,7 +54,7 @@ ${userAnswer !== null ? `Học viên đã chọn: ${String.fromCharCode(65 + use
 Yêu cầu:
 1. Giải thích tại sao đáp án ${String.fromCharCode(65 + correctAnswer)} là đúng.
 2. Nếu học viên chọn sai, hãy chỉ ra lỗi sai phổ biến hoặc tại sao lựa chọn đó không chính xác.
-3. Câu văn thân thiện, đậm chất DNC (với những từ như "DNC-er", "các bạn sinh viên"...).
+3. Câu văn thân thiện, hiện đại, mang tinh thần QIU (với những từ như "QIU-er", "các bạn học viên QIU"...).
 4. Giới hạn trong khoảng 3-5 câu.
 5. Không dùng markdown quá phức tạp, chỉ dùng in đậm cho các từ khóa quan trọng.
 `;

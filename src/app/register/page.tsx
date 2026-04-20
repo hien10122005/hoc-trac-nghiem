@@ -105,11 +105,11 @@ export default function RegisterPage() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#6c5ce7] to-[#00cec9] shadow-lg shadow-[#6c5ce7]/20">
               <CheckCircle2 className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">
-              Đăng ký Học viên
+            <h1 className="text-2xl font-black tracking-tight text-white uppercase italic">
+              Đăng ký thành viên <span className="text-[#6c5ce7]">QIU</span>
             </h1>
             <p className="mt-1 text-sm text-slate-400">
-              Tạo tài khoản để tham gia kiểm tra trắc nghiệm
+              Khám phá tiềm năng học tập cùng QIU
             </p>
           </div>
 

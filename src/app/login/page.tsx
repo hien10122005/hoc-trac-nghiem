@@ -107,8 +107,8 @@ export default function LoginPage() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] shadow-lg">
               <CheckCircle2 className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">
-              Học Trắc Nghiệm
+            <h1 className="text-4xl font-black tracking-tight text-white uppercase italic">
+              QIU
             </h1>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
               Đăng nhập để bắt đầu ôn tập
@@ -199,7 +199,7 @@ export default function LoginPage() {
               </Link>
             </p>
             <p className="text-xs text-[var(--text-muted)]/60">
-              © 2026 &mdash; Ứng dụng Học Trắc Nghiệm
+              © 2026 &mdash; QIU Smart Learning Platform
             </p>
           </div>
         </div>

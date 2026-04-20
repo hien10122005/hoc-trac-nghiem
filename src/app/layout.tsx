@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Học Trắc Nghiệm",
-  description: "Ứng dụng ôn thi trắc nghiệm hiện đại",
+  title: "QIU - Nền tảng Học tập Thông minh",
+  description: "Trải nghiệm ôn thi trắc nghiệm hiện đại và cá nhân hóa tối ưu nhất.",
 };
 
 export default function RootLayout({

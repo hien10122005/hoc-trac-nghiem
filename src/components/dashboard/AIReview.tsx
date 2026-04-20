@@ -132,10 +132,10 @@ export default function AIReview({ results }: AIReviewProps) {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-3xl font-extrabold text-white tracking-tight">AI Smart Review</h2>
+                <h2 className="text-3xl font-extrabold text-white tracking-tight">QIU Smart Review</h2>
                 <Sparkles size={20} className="text-yellow-400 animate-bounce" />
               </div>
-              <p className="text-xs text-slate-400 mt-1.5 uppercase tracking-widest font-black opacity-80 decoration-[#6c5ce7] decoration-2">DNC Virtual Tutor Hub</p>
+              <p className="text-xs text-slate-400 mt-1.5 uppercase tracking-widest font-black opacity-80 decoration-[#6c5ce7] decoration-2">QIU AI Tutor Hub</p>
             </div>
           </div>
 
@@ -169,9 +169,9 @@ export default function AIReview({ results }: AIReviewProps) {
               </div>
               <div className="space-y-2 text-center">
                 <p className="text-white text-xl font-bold tracking-wide animate-pulse">
-                  Gia sư AI đang quét dữ liệu lỗ hổng...
+                  Gia sư AI QIU đang quét dữ liệu lỗ hổng...
                 </p>
-                <p className="text-slate-500 text-sm font-medium">Bản sắc cá nhân hóa kiến thức Đại học Nam Cần Thơ</p>
+                <p className="text-slate-500 text-sm font-medium">Bản sắc cá nhân hóa kiến thức từ QIU</p>
               </div>
             </motion.div>
           ) : aiData ? (

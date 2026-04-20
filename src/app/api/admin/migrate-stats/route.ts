@@ -4,14 +4,14 @@ import { collection, getDocs, doc, setDoc, serverTimestamp } from "firebase/fire
 
 /**
  * API Chạy Migration: Đồng bộ hóa dữ liệu cũ sang user_stats
- * Truy cập: /api/admin/migrate-stats?key=DNC_ADMIN_FAST_SYNC
+ * Truy cập: /api/admin/migrate-stats?key=QIU_ADMIN_FAST_SYNC
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const key = searchParams.get("key");
 
   // Bảo mật cơ bản
-  if (key !== "DNC_ADMIN_FAST_SYNC") {
+  if (key !== "QIU_ADMIN_FAST_SYNC") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

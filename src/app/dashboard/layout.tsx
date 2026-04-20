@@ -103,7 +103,7 @@ export default function DashboardLayout({
             </div>
             {isSidebarOpen && (
               <span className="text-xl font-bold tracking-tight text-white uppercase whitespace-nowrap">
-                Học <span className="text-[#6c5ce7]">DNC</span>
+                <span className="text-[#6c5ce7]">QIU</span> Smart Learning
               </span>
             )}
           </div>
@@ -175,6 +175,16 @@ export default function DashboardLayout({
             <LogOut size={22} className="group-hover:-translate-x-1 transition-transform" />
             {isSidebarOpen && <span className="text-sm font-bold">Đăng xuất</span>}
           </button>
+          
+          {isSidebarOpen && (
+            <div className="mt-4 px-3 py-4 rounded-xl bg-white/[0.02] border border-white/5">
+              <p className="text-[9px] text-slate-500 font-bold text-center leading-relaxed">
+                © 2026 <span className="text-white">QIU</span><br />
+                Phát triển và điều hành bởi <br />
+                <span className="text-[#00cec9]">PhanVanHien</span>
+              </p>
+            </div>
+          )}
         </div>
       </aside>
 

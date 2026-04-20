@@ -19,17 +19,17 @@ export async function POST(req: Request) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
-      Bạn là một Gia sư tận tâm tại Đại học Nam Cần Thơ (DNC). 
+      Bạn là QIU AI Tutor - Gia sư thông minh của hệ thống QIU (Nền tảng Học tập Thông minh). 
       Dưới đây là các câu hỏi trắc nghiệm mà học viên của bạn đã làm sai:
       ${JSON.stringify(wrongQuestions)}
 
       Yêu cầu:
-      1. Phân tích lỗ hổng kiến thức: Dựa trên các lỗi sai, hãy đưa ra nhận xét chuyên môn (3-4 câu) bằng giọng văn của một thầy giáo miền Tây thân thiện, gần gũi.
+      1. Phân tích lỗ hổng kiến thức: Dựa trên các lỗi sai, hãy đưa ra nhận xét chuyên môn (3-4 câu) bằng giọng văn chuyên nghiệp, động viên nhưng vẫn cực kỳ sắc bén trong việc chỉ ra kiến thức bị hổng.
       2. Tạo 1 câu hỏi tương đương: Tạo 1 câu hỏi trắc nghiệm mới cùng chủ đề để giúp học viên củng cố lại kiến thức vừa hổng.
       
       Phải trả về kết quả dưới định dạng JSON duy nhất như sau (không kèm markdown):
       {
-        "analysis": "Lời nhận xét và phân tích của thầy...",
+        "analysis": "Lời nhận xét và phân tích của QIU AI Tutor...",
         "newQuestion": {
           "content": "Nội dung câu hỏi luyện tập mới...",
           "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],

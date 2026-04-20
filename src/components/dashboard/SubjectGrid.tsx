@@ -50,7 +50,7 @@ export default function SubjectGrid({ subjects, loading, onSelect }: SubjectGrid
                 </div>
                 
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                  <span>Hệ thống DNC</span>
+                  <span>Hệ thống QIU</span>
                 </div>
               </div>
 

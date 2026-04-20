@@ -79,7 +79,7 @@ export default function HeroBanner({ userName }: HeroBannerProps) {
              transition={{ delay: 0.2 }}
              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[#aca3ff] text-xs font-bold uppercase tracking-widest"
           >
-            <span>Cổng thông tin học tập DNC</span>
+            <span>QIU - Nền tảng Học tập Thông minh</span>
           </motion.div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
             Chào mừng, <span className="bg-gradient-to-r from-[#6c5ce7] via-[#a29bfe] to-[#00cec9] bg-clip-text text-transparent">{userName}</span>!
