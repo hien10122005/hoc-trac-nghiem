@@ -70,6 +70,7 @@ export default function AnalyticsPage() {
   const [aggregatedStats, setAggregatedStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSubject, setSelectedSubject] = useState("all");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // ─── Fetch Data ─────────────────────────────────────
   useEffect(() => {
