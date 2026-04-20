@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "";
+    const apiKey = process.env.GEMINI_API_KEY || "";
     if (!apiKey) {
-      return NextResponse.json({ error: "API Key chưa được cấu hình. Vui lòng kiểm tra lại biến môi trường." }, { status: 500 });
+      return NextResponse.json({ error: "Server thiếu cấu hình API Key (GEMINI_API_KEY). Vui lòng kiểm tra lại Dashboard Vercel." }, { status: 500 });
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
