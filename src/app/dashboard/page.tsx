@@ -8,7 +8,7 @@ import {
   query, 
   orderBy
 } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, getCachedDocs } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { Loader2, BookOpen, GraduationCap } from "lucide-react";
 
