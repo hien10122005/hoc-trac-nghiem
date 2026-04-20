@@ -45,7 +45,7 @@ export async function getCachedDocs(q: Query) {
       console.log("Firestore: Loaded from Cache");
       return snapshot;
     }
-  } catch (err) {
+  } catch (_err) {
     // Chỉ log lỗi nếu không phải là lỗi "không tìm thấy trong cache"
   }
   

@@ -116,7 +116,7 @@ export default function QuestionsPage() {
         throw new Error("File trống hoặc định dạng không hợp lệ!");
       }
 
-      const parseCorrectAnswer = (val: any): number => {
+      const parseCorrectAnswer = (val: unknown): number => {
         if (typeof val === "string") {
           const upperVal = val.trim().toUpperCase();
           if (upperVal === "A") return 0;

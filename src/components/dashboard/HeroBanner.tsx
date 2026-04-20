@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Flame, Quote, LogOut } from "lucide-react";
+import { Quote, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -27,6 +27,7 @@ interface HeroBannerProps {
 
 export default function HeroBanner({ userName }: HeroBannerProps) {
   const [quote, setQuote] = useState("");
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   const router = useRouter();
 
   useEffect(() => {

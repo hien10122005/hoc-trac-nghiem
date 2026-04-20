@@ -23,7 +23,7 @@ interface Question {
   options: string[];
   correctAnswer: number;
   explanation: string;
-  createdAt: any;
+  createdAt: { toDate: () => Date };
 }
 
 export default function MigratePage() {
@@ -111,7 +111,8 @@ export default function MigratePage() {
             questions: groupedBySubject[subjectId],
             updatedAt: serverTimestamp()
           }, { merge: true });
-        } catch (setErr: any) {
+        } catch (err: unknown) {
+          const setErr = err as { message: string };
           console.error(`Error writing subject ${subjectId}:`, setErr);
           throw new Error(`Lỗi khi ghi dữ liệu vào 'quizzes/${subjectId}': ${setErr.message}`);
         }
@@ -132,7 +133,8 @@ export default function MigratePage() {
             await batch.commit();
             console.log(`Committed batch delete up to ${deletedCount}`);
             batch = writeBatch(db);
-          } catch (delErr: any) {
+          } catch (err: unknown) {
+            const delErr = err as { message: string };
             console.error("Batch delete error:", delErr);
             throw new Error(`Lỗi khi xóa dữ liệu cũ (Batch): ${delErr.message}`);
           }
@@ -141,13 +143,14 @@ export default function MigratePage() {
 
       setProgress("✅ Hoàn tất migration thành công!");
       toast.success("Đã cấu trúc lại dữ liệu thành công!");
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { code?: string; message?: string };
       console.error("Full Migration Error Trace:", error);
       const msg = error.code === 'permission-denied' 
         ? "Lỗi quyền truy cập (Permission Denied). Vui lòng kiểm tra Firebase Rules." 
         : error.message;
-      toast.error("Lỗi: " + msg);
-      setProgress("❌ Lỗi: " + msg);
+      toast.error("Lỗi: " + (msg || "Unknown error"));
+      setProgress("❌ Lỗi: " + (msg || "Unknown error"));
     } finally {
       setIsMigrating(false);
     }
@@ -187,7 +190,7 @@ export default function MigratePage() {
           </div>
           <h1 className="text-2xl font-bold text-white">Migration Công Cụ</h1>
           <p className="text-slate-300 text-sm">
-            Công cụ này sẽ chuyển <strong>toàn bộ</strong> dữ liệu từ cấu trúc "1 câu hỏi = 1 Document" sang "1 Môn học = 1 Document (chứa mảng câu hỏi)".
+            Công cụ này sẽ chuyển <strong>toàn bộ</strong> dữ liệu từ cấu trúc &quot;1 câu hỏi = 1 Document&quot; sang &quot;1 Môn học = 1 Document (chứa mảng câu hỏi)&quot;.
             Dữ liệu ở collection cũ `questions` sẽ bị xóa hoàn toàn để dọn dẹp.
           </p>
         </div>

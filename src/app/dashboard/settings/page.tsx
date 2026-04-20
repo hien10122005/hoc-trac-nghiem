@@ -21,6 +21,7 @@ import toast from "react-hot-toast";
 export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
@@ -57,7 +58,8 @@ export default function SettingsPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { code?: string; message?: string };
       console.error("Error updating password:", error);
       if (error.code === "auth/wrong-password") {
         toast.error("Mật khẩu hiện tại không đúng.", { id: toastId });

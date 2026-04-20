@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { 
   Bookmark, 
   Trash2, 
-  ChevronRight, 
   Search, 
   HelpCircle,
   Loader2,
@@ -15,7 +14,7 @@ import {
 } from "lucide-react";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import Link from "next/link";
 import toast from "react-hot-toast";
 
@@ -35,7 +34,7 @@ interface QuestionDetail {
 }
 
 export default function SavedQuestionsPage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [savedList, setSavedList] = useState<SavedQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -49,10 +48,10 @@ export default function SavedQuestionsPage() {
       if (statsSnap.exists()) {
         const saved = statsSnap.data().savedQuestions || [];
         // Sort by newest
-        setSavedList(saved.sort((a: any, b: any) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()));
+        setSavedList(saved.sort((a: SavedQuestion, b: SavedQuestion) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()));
         
         // Fetch subject names
-        const subjectIds = Array.from(new Set(saved.map((q: any) => q.subjectId)));
+        const subjectIds = Array.from(new Set(saved.map((q: SavedQuestion) => q.subjectId)));
         const subjectNames: Record<string, string> = {};
         
         for (const sId of subjectIds as string[]) {
@@ -104,7 +103,7 @@ export default function SavedQuestionsPage() {
       const quizDoc = await getDoc(doc(db, "quizzes", item.subjectId));
       if (quizDoc.exists()) {
         const questions = quizDoc.data().questions || [];
-        const qDetail = questions.find((q: any) => q.id === item.questionId);
+        const qDetail = questions.find((q: QuestionDetail) => q.id === item.questionId);
         if (qDetail) {
           setSelectedQuestion(qDetail);
           toast.dismiss(toastId);

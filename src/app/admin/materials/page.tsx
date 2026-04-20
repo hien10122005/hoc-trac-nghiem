@@ -51,7 +51,7 @@ interface Material {
   subjectId: string;
   type: string; // 'pdf' | 'link' | 'docx' | 'youtube' | 'reading'
   content?: string; // Markdown content for reading lessons
-  createdAt: any;
+  createdAt: { toDate: () => Date };
 }
 
 type MaterialCategory = 'all' | 'video' | 'document' | 'reading';
@@ -157,7 +157,8 @@ export default function MaterialsPage() {
 
       setIsModalOpen(false);
       resetForm();
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { message?: string };
       console.error("Error saving material:", error);
       toast.error(`Lỗi: ${error.message || "Đã có lỗi xảy ra"}`);
     } finally {
@@ -208,7 +209,8 @@ export default function MaterialsPage() {
         
         // Clear value for next selection
         if (fileInputRef.current) fileInputRef.current.value = "";
-      } catch (err: any) {
+      } catch (e: unknown) {
+        const err = e as { message?: string };
         console.error("Word conversion error:", err);
         toast.error("Lỗi khi đọc file Word: " + (err.message || "Định dạng file không hỗ trợ hoặc bị hỏng"));
       } finally {
@@ -471,7 +473,7 @@ export default function MaterialsPage() {
                         onChange={(e) => setUrl(e.target.value)}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-2 px-1 italic">Mẹo: Dán link Google Drive chia sẻ ở chế độ "Bất kỳ ai có liên kết".</p>
+                    <p className="text-[10px] text-slate-500 mt-2 px-1 italic">Mẹo: Dán link Google Drive chia sẻ ở chế độ &quot;Bất kỳ ai có liên kết&quot;.</p>
                   </div>
                 ) : (
                   <div>

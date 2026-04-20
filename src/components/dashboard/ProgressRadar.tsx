@@ -10,12 +10,23 @@ import {
   PolarGrid, 
   PolarAngleAxis, 
   PolarRadiusAxis, 
-  ResponsiveContainer 
+  ResponsiveContainer,
+  Cell
 } from "recharts";
 import { Loader2, Target } from "lucide-react";
 
+interface SubjectData {
+  name: string;
+  totalExams: number;
+  totalScoreSum: number;
+}
+
+interface UserStats {
+  subjectStats: Record<string, SubjectData>;
+}
+
 export default function ProgressRadar() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,13 +35,15 @@ export default function ProgressRadar() {
         try {
           const statsDoc = await getDoc(doc(db, "user_stats", user.uid));
           if (statsDoc.exists()) {
-            setStats(statsDoc.data());
+            setStats(statsDoc.data() as UserStats);
           }
         } catch (err) {
           console.error("Radar fetch error:", err);
         } finally {
           setLoading(false);
         }
+      } else {
+        setLoading(false);
       }
     });
     return () => unsubscribe();
@@ -39,15 +52,16 @@ export default function ProgressRadar() {
   const radarData = useMemo(() => {
     if (!stats || !stats.subjectStats) return [];
     
-    return Object.entries(stats.subjectStats).map(([id, data]: [string, any]) => {
+    return Object.entries(stats.subjectStats).map(([, data]) => {
       const name = data.name || "Môn học";
       const avg = data.totalExams > 0 ? (data.totalScoreSum / data.totalExams) : 0;
       return {
         subject: name.length > 12 ? name.substring(0, 10) + "..." : name,
         full: name,
         value: parseFloat(avg.toFixed(1)),
+        color: "#6c5ce7"
       };
-    }).slice(0, 6); // Top 6 subjects for clarity
+    }).slice(0, 6);
   }, [stats]);
 
   if (loading) {
@@ -84,7 +98,11 @@ export default function ProgressRadar() {
                 fill="#6c5ce7"
                 fillOpacity={0.2}
                 strokeWidth={2}
-              />
+              >
+                {radarData.map((_entry, index) => (
+                  <Cell key={`cell-${index}`} fill={radarData[index].color} />
+                ))}
+              </Radar>
             </RadarChart>
           </ResponsiveContainer>
         ) : (

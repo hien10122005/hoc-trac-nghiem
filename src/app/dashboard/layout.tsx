@@ -14,7 +14,7 @@ import {
   BarChart3,
   Bookmark
 } from "lucide-react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter, usePathname } from "next/navigation";
@@ -27,8 +27,8 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const [userData, setUserData] = useState<any>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -55,7 +55,7 @@ export default function DashboardLayout({
       await signOut(auth);
       toast.success("Đã đăng xuất");
       router.push("/login");
-    } catch (error) {
+    } catch (_err) {
       toast.error("Lỗi khi đăng xuất");
     }
   };
@@ -139,7 +139,6 @@ export default function DashboardLayout({
         {/* Navigation */}
         <nav className="flex-1 space-y-1.5 px-3 py-6">
           {menuItems.map((item) => {
-            const isActive = pathname === item.href || (item.href === "/dashboard" && pathname === "/dashboard");
             // Special case for dashboard root
             const activeMatch = item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href);
 

@@ -11,17 +11,22 @@ export async function POST(req: Request) {
     const genAI = new GoogleGenerativeAI(apiKey);
 
     // Parse request body
-    let body;
+    let body: unknown;
     try {
       body = await req.json();
     } catch {
       return NextResponse.json({ error: "Không thể đọc dữ liệu yêu cầu" }, { status: 400 });
     }
 
-    const { question, options, correctAnswer: rawCorrect, userAnswer: rawUser } = body;
+    const { question, options, correctAnswer: rawCorrect, userAnswer: rawUser } = body as {
+      question: string;
+      options: string[];
+      correctAnswer: string | number;
+      userAnswer?: string | number | null;
+    };
 
     // Helper to convert 'A', 'B', 'C', 'D' or number to index 0-3
-    const toIndex = (val: any) => {
+    const toIndex = (val: string | number | null | undefined): number => {
       if (typeof val === "number") return val;
       if (typeof val === "string") {
         const code = val.toUpperCase().charCodeAt(0);
@@ -37,8 +42,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Dữ liệu câu hỏi không hợp lệ" }, { status: 400 });
     }
 
-    // Sử dụng gemini-2.5-flash (model miễn phí hiện có)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // Sử dụng gemini-2.0-flash
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `
 Bạn là QIU AI Tutor - Gia sư thông minh của hệ thống QIU. 
@@ -69,13 +74,14 @@ Yêu cầu:
 
     return NextResponse.json({ explanation: text });
 
-  } catch (error: any) {
+  } catch (err: unknown) {
+    const error = err as { message?: string };
     console.error("AI Explain Error:", error);
 
     if (error.message?.includes("429")) {
       return NextResponse.json({ error: "AI đang bận (đạt giới hạn). Thử lại sau 1 phút." }, { status: 429 });
     }
     
-    return NextResponse.json({ error: "Lỗi AI: " + (error.message || "Unknown") }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi AI: " + (error.message || "Unknown error") }, { status: 500 });
   }
 }

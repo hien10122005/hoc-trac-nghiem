@@ -15,7 +15,7 @@ import {
   arrayRemove
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -61,9 +61,9 @@ export default function QuizPage() {
   const params = useParams();
   const subjectId = params.subjectId as string;
   const router = useRouter();
-  const [user, setUser] = useState<unknown>(null);
+  const [_user, setUser] = useState<FirebaseUser | null>(null);
   const [subjectName, setSubjectName] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   
   const [state, setState] = useState<QuizState>({
     questions: [],
@@ -152,7 +152,7 @@ export default function QuizPage() {
           if (statsSnap.exists()) {
              const saved = statsSnap.data().savedQuestions || [];
              // We only need the IDs for the quick toggle check
-             setSavedQuestionIds(new Set(saved.map((item: any) => item.questionId)));
+              setSavedQuestionIds(new Set(saved.map((item: {questionId: string}) => item.questionId)));
           }
         } catch (error) {
           console.warn("Could not fetch saved questions:", error);
@@ -240,12 +240,12 @@ export default function QuizPage() {
     // Optimized Result Saving (1 Write Document = 1 Session)
     if (user) {
       try {
-        const userId = (user as any).uid;
+        const userId = user.uid;
         
         // 1. Lưu kết quả thi chi tiết (Dành cho bảng lịch sử)
         await addDoc(collection(db, "results"), {
           userId,
-          userEmail: (user as any).email,
+          userEmail: user.email,
           subjectId,
           subjectName,
           score,
@@ -257,7 +257,7 @@ export default function QuizPage() {
         // 2. Aggregation: Cập nhật tài liệu tổng hợp user_stats
         const statsRef = doc(db, "user_stats", userId);
         
-        const updateData: any = {
+        const updateData: Record<string, any> = {
           totalExams: increment(1),
           totalCorrect: increment(correct),
           totalQuestions: increment(total),
@@ -405,7 +405,7 @@ export default function QuizPage() {
       } else {
         toast.error(data.error || "Không thể lấy giải thích từ AI");
       }
-    } catch (err) {
+    } catch (_err) {
       toast.error("Lỗi kết nối AI");
     } finally {
       setAiLoading(prev => ({ ...prev, [qKey]: false }));
@@ -414,7 +414,7 @@ export default function QuizPage() {
 
   const toggleBookmark = async (question: Question) => {
     if (!user) return;
-    const userId = (user as any).uid;
+    const userId = user.uid;
     const qId = question.id;
     const isBookmarked = savedQuestionIds.has(qId);
     
@@ -439,7 +439,7 @@ export default function QuizPage() {
         const snap = await getDoc(statsRef);
         if (snap.exists()) {
             const saved = snap.data().savedQuestions || [];
-            const updated = saved.filter((item: any) => item.questionId !== qId);
+            const updated = saved.filter((item: {questionId: string}) => item.questionId !== qId);
             await updateDoc(statsRef, { savedQuestions: updated });
         }
 

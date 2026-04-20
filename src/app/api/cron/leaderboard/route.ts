@@ -41,7 +41,8 @@ export async function GET(request: Request) {
       count: leaderboard.length,
       updatedAt: new Date().toISOString() 
     });
-  } catch (error: any) {
+  } catch (err: unknown) {
+    const error = err as Record<string, unknown>;
     console.error("Cron Error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

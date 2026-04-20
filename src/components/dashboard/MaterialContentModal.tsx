@@ -1,11 +1,11 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, BookOpen, Clock, Maximize2, Edit3, Save, Loader2, CheckCircle2 } from "lucide-react";
+import { X, BookOpen, Clock, Maximize2, Edit3, Loader2, CheckCircle2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 interface MaterialContentModalProps {

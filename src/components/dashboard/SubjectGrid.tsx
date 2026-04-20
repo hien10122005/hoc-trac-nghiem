@@ -1,8 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { GraduationCap, ArrowRight, Clock, Star, AlertCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { ArrowRight, Clock, Star, GraduationCap } from "lucide-react";
 
 interface Subject {
   id: string;

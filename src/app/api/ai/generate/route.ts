@@ -9,16 +9,16 @@ export async function POST(req: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const { wrongQuestions } = await req.json();
+    const { wrongQuestions } = (await req.json()) as { wrongQuestions: Record<string, unknown>[] };
 
     if (!wrongQuestions || !Array.isArray(wrongQuestions) || wrongQuestions.length === 0) {
       return NextResponse.json({ error: "Bạn cần hoàn thành ít nhất 1 bài thi để AI có dữ liệu phân tích" }, { status: 400 });
     }
 
     // Model Lite để xử lý nhanh nhất
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    const prompt = `
+    const aiPrompt = `
       Bạn là QIU AI Tutor - Gia sư thông minh của hệ thống QIU (Nền tảng Học tập Thông minh). 
       Dưới đây là các câu hỏi trắc nghiệm mà học viên của bạn đã làm sai:
       ${JSON.stringify(wrongQuestions)}
@@ -42,10 +42,11 @@ export async function POST(req: Request) {
     console.log("Calling Gemini API for AI Smart Review. Total questions to analyze:", wrongQuestions.length);
     let result;
     try {
-      result = await model.generateContent(prompt);
-    } catch (apiError: any) {
+      result = await model.generateContent(aiPrompt);
+    } catch (err: unknown) {
+      const apiError = err as { message?: string };
       console.error("Lỗi từ Gemini API:", apiError);
-      return NextResponse.json({ error: "Lỗi kết nối Gemini API bị từ chối: " + apiError.message }, { status: 502 });
+      return NextResponse.json({ error: "Lỗi kết nối Gemini API bị từ chối: " + (apiError.message || "Unknown error") }, { status: 502 });
     }
 
     const response = await result.response;

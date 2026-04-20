@@ -5,30 +5,30 @@ import { collection, getDocs, doc, setDoc, serverTimestamp } from "firebase/fire
 /**
  * API Chạy Migration: Đồng bộ hóa dữ liệu cũ sang user_stats
  * Truy cập: /api/admin/migrate-stats?key=QIU_ADMIN_FAST_SYNC
+ * Lưu ý: Để bảo mật, API này giờ đây yêu cầu phương thức POST và CRON_SECRET
  */
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const key = searchParams.get("key");
-
-  // Bảo mật cơ bản
-  if (key !== "QIU_ADMIN_FAST_SYNC") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export async function POST(request: Request) {
   try {
+    const body = (await request.json()) as { secret: string; targetCollection?: string };
+    const { secret, targetCollection } = body;
+
+    if (secret !== process.env.CRON_SECRET) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // 1. Lấy tất cả results từ Firestore
-    const resultsSnap = await getDocs(collection(db, "results"));
-    const results = resultsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+    const resultsSnap = await getDocs(collection(db, targetCollection || "results"));
+    const results = resultsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Record<string, unknown>[];
 
     if (results.length === 0) {
       return NextResponse.json({ message: "Không có dữ liệu results để migrate." });
     }
 
     // 2. Nhóm dữ liệu theo userId để tính toán
-    const userStatsMap: Record<string, any> = {};
+    const userStatsMap: Record<string, { totalExams: number; totalCorrect: number; totalQuestions: number; totalScoreSum: number; bestScore: number; subjectStats: Record<string, unknown> }> = {};
 
     results.forEach((r) => {
-      const uid = r.userId;
+      const uid = r.userId as string;
       if (!uid) return;
 
       if (!userStatsMap[uid]) {
@@ -38,13 +38,12 @@ export async function GET(request: Request) {
           totalQuestions: 0,
           totalScoreSum: 0,
           bestScore: 0,
-          subjectStats: {}
+          subjectStats: {} as Record<string, unknown>
         };
       }
 
       const stats = userStatsMap[uid];
       stats.totalExams += 1;
-      stats.totalCorrect += r.correctCount || 0;
       stats.totalQuestions += r.totalQuestions || 0;
       stats.totalScoreSum += r.score || 0;
       
@@ -74,10 +73,9 @@ export async function GET(request: Request) {
 
     // 3. Ghi dữ liệu đã tổng hợp vào collection user_stats
     const promises = Object.entries(userStatsMap).map(([uid, stats]) => {
-      // Dùng setDoc với merge: true để giữ lại các field khác nếu có
       return setDoc(doc(db, "user_stats", uid), {
         ...stats,
-        lastUpdatedAt: serverTimestamp(),
+        lastUpdated: serverTimestamp(),
         migrationNote: "Dữ liệu được đồng bộ từ script migration v1"
       }, { merge: true });
     });
@@ -93,11 +91,12 @@ export async function GET(request: Request) {
       }
     });
 
-  } catch (error: any) {
+  } catch (err: unknown) {
+    const error = err as { message?: string };
     console.error("Migration Error:", error);
     return NextResponse.json({ 
       success: false, 
-      error: error.message 
+      error: error.message || "Unknown error"
     }, { status: 500 });
   }
 }

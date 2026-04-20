@@ -33,7 +33,17 @@ export default function FlashcardsPage() {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [mastered, setMastered] = useState<Set<string>>(new Set());
+  const [mastered, setMastered] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("flashcard_mastered");
+      try {
+        return saved ? new Set(JSON.parse(saved)) : new Set();
+      } catch {
+        return new Set();
+      }
+    }
+    return new Set();
+  });
   const [showMastered, setShowMastered] = useState(true);
 
   useEffect(() => {
@@ -78,11 +88,7 @@ export default function FlashcardsPage() {
     return () => unsubscribe();
   }, []);
 
-  // Load mastered from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("flashcard_mastered");
-    if (saved) setMastered(new Set(JSON.parse(saved)));
-  }, []);
+
 
   const saveMastered = (newSet: Set<string>) => {
     setMastered(newSet);

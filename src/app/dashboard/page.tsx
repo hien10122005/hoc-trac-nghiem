@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { 
   collection, 
-  onSnapshot, 
   query, 
-  orderBy,
+  orderBy, 
+  getDocs, 
   getDoc,
-  doc,
-  getDocs
+  doc
 } from "firebase/firestore";
 import { auth, db, getCachedDocs } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
@@ -32,7 +31,7 @@ interface Subject {
     // Result and other interfaces removed because we no longer fetch history
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<unknown>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
@@ -87,7 +86,7 @@ export default function DashboardPage() {
         // Fallback to cache if server fails
         const qSub = query(collection(db, "subjects"), orderBy("name", "asc"));
         const cachedSnap = await getCachedDocs(qSub);
-        setSubjects(cachedSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any);
+        setSubjects(cachedSnap.docs.map(d => ({ id: d.id, ...d.data() })) as unknown as Subject[]);
       } finally {
         setSubjectsLoading(false);
       }
@@ -116,7 +115,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-10">
       {/* TOP: Hero Banner */}
-      <HeroBanner userName={(user as any)?.email?.split('@')[0] || "Học viên"} />
+      <HeroBanner userName={user?.email?.split('@')[0] || "Học viên"} />
 
       {/* Stats & Rankings Section */}
       {viewMode === 'quiz' && (

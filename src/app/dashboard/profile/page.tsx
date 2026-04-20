@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import {
   User,
   Mail,
@@ -19,7 +19,14 @@ import {
   BookOpen,
   Loader2,
 } from "lucide-react";
-
+interface UserStats {
+  totalExams: number;
+  avgScore: number;
+  bestScore: number;
+  accuracy: number;
+  streak: number;
+  subjectCount: number;
+}
 // ─── Badge Definitions ──────────────────────────────────
 const BADGE_DEFS = [
   {
@@ -30,7 +37,7 @@ const BADGE_DEFS = [
     color: "text-amber-400",
     bg: "bg-amber-400/10",
     border: "border-amber-400/20",
-    check: (stats: any) => stats.totalExams >= 1,
+    check: (stats: UserStats) => stats.totalExams >= 1,
   },
   {
     id: "five_quizzes",
@@ -40,7 +47,7 @@ const BADGE_DEFS = [
     color: "text-blue-400",
     bg: "bg-blue-400/10",
     border: "border-blue-400/20",
-    check: (stats: any) => stats.totalExams >= 5,
+    check: (stats: UserStats) => stats.totalExams >= 5,
   },
   {
     id: "ten_quizzes",
@@ -50,7 +57,7 @@ const BADGE_DEFS = [
     color: "text-purple-400",
     bg: "bg-purple-400/10",
     border: "border-purple-400/20",
-    check: (stats: any) => stats.totalExams >= 10,
+    check: (stats: UserStats) => stats.totalExams >= 10,
   },
   {
     id: "perfect_score",
@@ -60,7 +67,7 @@ const BADGE_DEFS = [
     color: "text-yellow-400",
     bg: "bg-yellow-400/10",
     border: "border-yellow-400/20",
-    check: (stats: any) => stats.bestScore >= 10,
+    check: (stats: UserStats) => stats.bestScore >= 10,
   },
   {
     id: "high_scorer",
@@ -70,7 +77,7 @@ const BADGE_DEFS = [
     color: "text-[#00cec9]",
     bg: "bg-[#00cec9]/10",
     border: "border-[#00cec9]/20",
-    check: (stats: any) => stats.avgScore >= 8,
+    check: (stats: UserStats) => stats.avgScore >= 8,
   },
   {
     id: "streak_3",
@@ -80,7 +87,7 @@ const BADGE_DEFS = [
     color: "text-orange-400",
     bg: "bg-orange-400/10",
     border: "border-orange-400/20",
-    check: (stats: any) => stats.streak >= 3,
+    check: (stats: UserStats) => stats.streak >= 3,
   },
   {
     id: "streak_5",
@@ -90,7 +97,7 @@ const BADGE_DEFS = [
     color: "text-rose-400",
     bg: "bg-rose-400/10",
     border: "border-rose-400/20",
-    check: (stats: any) => stats.streak >= 5,
+    check: (stats: UserStats) => stats.streak >= 5,
   },
   {
     id: "accuracy_80",
@@ -100,7 +107,7 @@ const BADGE_DEFS = [
     color: "text-green-400",
     bg: "bg-green-400/10",
     border: "border-green-400/20",
-    check: (stats: any) => stats.accuracy >= 80,
+    check: (stats: UserStats) => stats.accuracy >= 80,
   },
   {
     id: "multi_subject",
@@ -110,15 +117,15 @@ const BADGE_DEFS = [
     color: "text-[#6c5ce7]",
     bg: "bg-[#6c5ce7]/10",
     border: "border-[#6c5ce7]/20",
-    check: (stats: any) => stats.subjectCount >= 3,
+    check: (stats: UserStats) => stats.subjectCount >= 3,
   },
 ];
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<any>(null);
-  const [userData, setUserData] = useState<any>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [userData, setUserData] = useState<{ name?: string; createdAt?: unknown } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
@@ -133,7 +140,8 @@ export default function ProfilePage() {
         try {
           const q = query(
             collection(db, "results"),
-            where("userId", "==", authUser.uid)
+            where("userId", "==", authUser.uid),
+            orderBy("createdAt", "desc")
           );
           const snapshot = await getDocs(q);
           const results = snapshot.docs.map((d) => d.data());

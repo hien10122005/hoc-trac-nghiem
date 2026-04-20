@@ -36,24 +36,35 @@ import {
   Cell,
 } from "recharts";
 
-// ─── Types ──────────────────────────────────────────────
-interface QuizResult {
-  id: string;
-  subjectName: string;
-  subjectId: string;
-  score: number;
-  correctCount: number;
+interface AggregatedStats {
+  totalExams: number;
+  totalScoreSum: number;
+  bestScore: number;
+  totalCorrect: number;
   totalQuestions: number;
-  createdAt: any; // Firestore Timestamp
+  streak: number;
+  subjectStats: Record<string, {
+    name: string;
+    totalExams: number;
+    totalScoreSum: number;
+    totalCorrect: number;
+    totalQuestions: number;
+  }>;
+}
+
+interface TooltipPayload {
+  name: string;
+  value: number;
+  color: string;
 }
 
 // ─── Custom Tooltip ─────────────────────────────────────
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-xl border border-white/10 bg-[#0c0e17]/95 backdrop-blur-md px-4 py-3 shadow-xl">
         <p className="text-xs text-slate-400 mb-1">{label}</p>
-        {payload.map((entry: any, i: number) => (
+        {payload.map((entry, i: number) => (
           <p key={i} className="text-sm font-bold" style={{ color: entry.color }}>
             {entry.name}: {entry.value}
             {entry.name.includes("Điểm") || entry.name.includes("Trung bình") ? "/10" : ""}
@@ -67,7 +78,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function AnalyticsPage() {
   const [results, setResults] = useState<QuizResult[]>([]);
-  const [aggregatedStats, setAggregatedStats] = useState<any>(null);
+  const [aggregatedStats, setAggregatedStats] = useState<AggregatedStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSubject, setSelectedSubject] = useState("all");
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -119,8 +130,9 @@ export default function AnalyticsPage() {
           if (data.length > 20) data = data.slice(-20);
 
           setResults(data);
-        } catch (err: any) {
-          console.error("Analytics Error:", err.message);
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : "Error";
+          console.error("Analytics Error:", errorMessage);
         }
       }
       setLoading(false);
@@ -172,12 +184,12 @@ export default function AnalyticsPage() {
          bestScore,
          accuracy,
          streak: aggregatedStats.streak || 0,
-         trend: "N/A", // Trend requires historical context which stats doc alone doesn't have
+         trend: "N/A",
          trendUp: true,
        };
     } else {
        // Per subject stats from the nested object
-       const sub = Object.values(aggregatedStats.subjectStats || {}).find((s: any) => s.name === selectedSubject) as any;
+       const sub = Object.values(aggregatedStats.subjectStats || {}).find((s) => s.name === selectedSubject);
        if (!sub) return null;
        
        const avgScore = sub.totalExams > 0 ? sub.totalScoreSum / sub.totalExams : 0;
@@ -211,7 +223,7 @@ export default function AnalyticsPage() {
   const radarData = useMemo(() => {
     if (!aggregatedStats || !aggregatedStats.subjectStats) return [];
     
-    return Object.entries(aggregatedStats.subjectStats).map(([id, data]: [string, any]) => {
+    return Object.entries(aggregatedStats.subjectStats).map(([id, data]) => {
       const name = data.name || "Môn học";
       const avg = data.totalExams > 0 ? data.totalScoreSum / data.totalExams : 0;
       return {

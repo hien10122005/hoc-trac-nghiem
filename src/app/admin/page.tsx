@@ -63,6 +63,7 @@ export default function AdminDashboard() {
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
@@ -78,6 +79,7 @@ export default function AdminDashboard() {
         
         if (userData?.role === "admin") {
           setIsAdmin(true);
+          setUserData(userData as Record<string, unknown>);
         } else {
           setIsAdmin(false);
           setIsLoading(false);
@@ -106,14 +108,15 @@ export default function AdminDashboard() {
 
         let totalQuestions = 0;
         quizzesSnap.forEach(doc => {
-          totalQuestions += (doc.data().questions?.length || 0);
+          const data = doc.data();
+          totalQuestions += (Array.isArray(data.questions) ? data.questions.length : 0);
         });
 
         setStats({
           subjects: subCount.data().count,
           questions: totalQuestions,
           students: userCount.data().count,
-          results: materialsCount.data().count // Using results field for materials count
+          results: materialsCount.data().count
         });
       } catch (error) {
         console.error("Error fetching counts:", error);
@@ -142,10 +145,10 @@ export default function AdminDashboard() {
 
     const unsubMaterials = onSnapshot(qMaterials, (snapshot) => {
       recentMaterials = snapshot.docs.map(snap => {
-        const data = snap.data() as any;
+        const data = snap.data() as Record<string, unknown>;
         return {
           id: snap.id,
-          type: "quiz" as const, // Using quiz type for materials to reuse UI
+          type: "quiz" as const,
           user: "Hệ thống",
           target: data.title || "Tài liệu mới",
           createdAt: data.createdAt
