@@ -1,14 +1,15 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import crypto from "crypto";
 
 export async function POST(req: Request) {
   try {
     const apiKey = (process.env.GEMINI_API_KEY || "").trim();
     if (!apiKey) {
-      return NextResponse.json({ error: "Server thiếu cấu hình API Key (GEMINI_API_KEY). Vui lòng kiểm tra lại Dashboard Vercel." }, { status: 500 });
+      return NextResponse.json({ error: "Server thiếu cấu hình API Key (GEMINI_API_KEY)." }, { status: 500 });
     }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
 
     // Parse request body
     let body: any;
@@ -19,6 +20,32 @@ export async function POST(req: Request) {
     }
 
     const { question, options, correctAnswer: rawCorrect, userAnswer: rawUser } = body;
+    
+    if (!question || !options || !Array.isArray(options)) {
+      return NextResponse.json({ error: "Dữ liệu câu hỏi không hợp lệ" }, { status: 400 });
+    }
+
+    // 1. Tạo Cache Key từ câu hỏi và các lựa chọn (để tránh giải thích sai cho câu hỏi giống nhau nhưng đổi options)
+    const normalizedContent = `${question.trim()}_${options.map(o => o.trim()).sort().join("|")}`;
+    const cacheKey = crypto.createHash("md5").update(normalizedContent).digest("hex");
+
+    // 2. Kiểm tra Cache trong Firestore
+    try {
+      const cacheRef = doc(db, "ai_explanations", cacheKey);
+      const cacheSnap = await getDoc(cacheRef);
+      
+      if (cacheSnap.exists()) {
+        console.log("AI Cache Hit: " + cacheKey);
+        return NextResponse.json({ 
+          explanation: cacheSnap.data().explanation,
+          modelUsed: "cached",
+          isCached: true
+        });
+      }
+    } catch (cacheErr) {
+      console.warn("Firestore Cache Check failed (soft error):", cacheErr);
+    }
+
     const toIndex = (val: any): number => {
       if (typeof val === "number") return val;
       if (typeof val === "string") {
@@ -31,10 +58,7 @@ export async function POST(req: Request) {
     const correctAnswer = toIndex(rawCorrect);
     const userAnswer = rawUser !== null && rawUser !== undefined ? toIndex(rawUser) : null;
 
-    if (!question || !options || !Array.isArray(options)) {
-      return NextResponse.json({ error: "Dữ liệu câu hỏi không hợp lệ" }, { status: 400 });
-    }
-
+    const genAI = new GoogleGenerativeAI(apiKey);
     const prompt = `
 Bạn là QIU AI Tutor - Gia sư thông minh của hệ thống QIU. 
 Hãy giải thích câu hỏi trắc nghiệm sau đây một cách ngắn gọn, dễ hiểu và chuyên nghiệp.
@@ -49,12 +73,12 @@ ${userAnswer !== null ? `Học viên đã chọn: ${String.fromCharCode(65 + use
 Yêu cầu:
 1. Giải thích tại sao đáp án ${String.fromCharCode(65 + correctAnswer)} là đúng.
 2. Nếu học viên chọn sai, hãy chỉ ra lỗi sai phổ biến hoặc tại sao lựa chọn đó không chính xác.
-3. Câu văn thân thiện, hiện đại, mang tinh thần QIU (ví dụ: "QIU-er", "các bạn học viên QIU"...).
+3. Câu văn thân thiện, hiện đại, mang tinh thần QIU.
 4. Giới hạn ngắn gọn trong 3-5 câu.
-5. Không dùng markdown phức tạp, chỉ dùng in đậm cho từ khóa.
+5. Không dùng markdown phức tạp.
 `;
 
-    // Ưu tiên 2.5-flash-lite (1000 req/ngày) > 2.5-flash (250 req/ngày) > 2.0-flash-lite
+    // Ưu tiên 2.5-flash-lite > 2.5-flash > 2.0-flash-lite
     const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash-lite"];
     let lastError: any = null;
 
@@ -66,6 +90,19 @@ Yêu cầu:
         const text = response.text();
 
         if (text) {
+          // 3. Lưu vào Cache trước khi trả về
+          try {
+            await setDoc(doc(db, "ai_explanations", cacheKey), {
+              explanation: text,
+              model: modelName,
+              question,
+              createdAt: serverTimestamp()
+            });
+            console.log("AI Cache Saved: " + cacheKey);
+          } catch (saveErr) {
+            console.error("Failed to save AI cache:", saveErr);
+          }
+
           return NextResponse.json({ 
             explanation: text,
             modelUsed: modelName 
@@ -73,28 +110,21 @@ Yêu cầu:
         }
       } catch (err: any) {
         lastError = err;
-        console.warn(`Model ${modelName} failed, trying next... Error:`, err.message);
-        // Nếu lỗi không phải 429 hay 404 (ví dụ lỗi Auth) thì dừng luôn
+        console.warn(`Model ${modelName} failed, trying next...`);
         if (!err.message?.includes("429") && !err.message?.includes("404") && !err.message?.includes("403")) {
            break;
         }
-        continue;
       }
     }
 
-    // Nếu chạy hết vòng lặp mà vẫn lỗi
-    console.error("All AI models failed. Last error from Google:", lastError);
-    
     const googleErrorMessage = lastError?.message || "Lỗi không xác định từ Google API";
-    
-    // Trả về lỗi chi tiết để người dùng chẩn đoán Key
     return NextResponse.json({ 
       error: `Google API Error: ${googleErrorMessage}`,
-      suggestion: "Vui lòng kiểm tra lại Quota hoặc Billing của Key này tại Google AI Studio."
-    }, { status: 429 });
+      suggestion: "Vui lòng kiểm tra lại Quota tại Google AI Studio."
+    }, { status: 502 });
 
   } catch (err: any) {
     console.error("AI Route Panic:", err);
-    return NextResponse.json({ error: "Lỗi hệ thống (Internal): " + err.message }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi hệ thống: " + err.message }, { status: 500 });
   }
 }

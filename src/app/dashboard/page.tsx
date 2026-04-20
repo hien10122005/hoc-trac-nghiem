@@ -12,7 +12,7 @@ import {
 } from "firebase/firestore";
 import { auth, db, getCachedDocs } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
-import { Loader2, BookOpen, GraduationCap } from "lucide-react";
+import { Loader2, BookOpen, GraduationCap, Sparkles } from "lucide-react";
 
 // Components
 import HeroBanner from "@/components/dashboard/HeroBanner";
@@ -36,7 +36,7 @@ export default function DashboardPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'quiz' | 'library'>('quiz');
+  const [viewMode, setViewMode] = useState<'quiz' | 'library' | 'flashcards'>('quiz');
   const [selectedSubject, setSelectedSubject] = useState<{id: string, name: string} | null>(null);
   const router = useRouter();
 
@@ -103,6 +103,8 @@ export default function DashboardPage() {
   const handleSubjectSelect = (id: string, name: string) => {
     if (viewMode === 'quiz') {
       router.push(`/quiz/${id}`);
+    } else if (viewMode === 'flashcards') {
+      router.push(`/dashboard/flashcards/${id}`);
     } else {
       setSelectedSubject({ id, name });
     }
@@ -146,10 +148,10 @@ export default function DashboardPage() {
       )}
 
       {/* Mode Tabs */}
-      <div className="flex p-1.5 bg-white/5 border border-white/5 rounded-2xl w-fit mx-auto">
+      <div className="flex p-1.5 bg-white/5 border border-white/5 rounded-2xl w-fit mx-auto overflow-x-auto">
           <button 
             onClick={() => { setViewMode('quiz'); setSelectedSubject(null); }}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
               viewMode === 'quiz' 
                 ? "bg-[#6c5ce7] text-white shadow-lg shadow-[#6c5ce7]/20" 
                 : "text-slate-400 hover:text-white"
@@ -158,16 +160,29 @@ export default function DashboardPage() {
             <GraduationCap size={18} />
             <span>Ôn luyện</span>
           </button>
+          
+          <button 
+            onClick={() => { setViewMode('flashcards'); setSelectedSubject(null); }}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+              viewMode === 'flashcards' 
+                ? "bg-[#f59e0b] text-white shadow-lg shadow-[#f59e0b]/20" 
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Sparkles size={18} />
+            <span>Học nhanh (FlashLearn)</span>
+          </button>
+
           <button 
             onClick={() => setViewMode('library')}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
               viewMode === 'library' 
                 ? "bg-[#00cec9] text-white shadow-lg shadow-[#00cec9]/20" 
                 : "text-slate-400 hover:text-white"
             }`}
           >
             <BookOpen size={18} />
-            <span>Thư viện tài liệu</span>
+            <span>Thư viện</span>
           </button>
       </div>
 
@@ -184,10 +199,10 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <h2 className="text-2xl font-bold tracking-tight text-white">
-                {viewMode === 'quiz' ? "Cửa hàng môn học" : "Thư viện chuyên đề"}
+                {viewMode === 'quiz' ? "Cửa hàng môn học" : viewMode === 'flashcards' ? "Flashcard Thông minh" : "Thư viện chuyên đề"}
               </h2>
               <p className="text-xs text-slate-500 font-bold uppercase tracking-widest text-[#00cec9]">
-                {viewMode === 'quiz' ? "Chọn thử thách tiếp theo" : "Khám phá kiến thức mới"}
+                {viewMode === 'quiz' ? "Chọn thử thách tiếp theo" : viewMode === 'flashcards' ? "Ghi nhớ nhanh kiến thức lõi" : "Khám phá kiến thức mới"}
               </p>
             </div>
             <div className="h-px flex-1 mx-8 bg-gradient-to-r from-white/10 to-transparent" />
