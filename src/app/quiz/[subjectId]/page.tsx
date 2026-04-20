@@ -82,7 +82,7 @@ export default function QuizPage() {
   const [draftData, setDraftData] = useState<{answers: (number|null)[], timeLeft: number, currentIdx: number} | null>(null);
 
   const [aiExplanations, setAiExplanations] = useState<Record<string, string>>({});
-  const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
+  const [isExplaining, setIsExplaining] = useState(false);
   const [savedQuestionIds, setSavedQuestionIds] = useState<Set<string>>(new Set());
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -382,14 +382,14 @@ export default function QuizPage() {
   };
 
   const handleAIExplain = async (qIdx: number) => {
+    if (isExplaining) return; // Chặn double click ngay lập tức
+    
     const question = state.questions[qIdx];
     const qKey = `${subjectId}_${qIdx}`;
     
-    // Guard: Nếu đã có kết quả hoặc đang loading -> chặn hoàn toàn
     if (aiExplanations[qKey]) return;
-    if (aiLoading[qKey]) return;
 
-    setAiLoading(prev => ({ ...prev, [qKey]: true }));
+    setIsExplaining(true); // 1. Bật trạng thái loading NGAY LẬP TỨC
     try {
       const res = await fetch("/api/ai/explain", {
         method: "POST",
@@ -401,21 +401,23 @@ export default function QuizPage() {
           userAnswer: state.userAnswers[qIdx] !== undefined ? state.userAnswers[qIdx] : null
         })
       });
+
+      if (res.status === 429) {
+        toast.error("Hệ thống AI đang quá tải. Vui lòng thử lại sau 1 phút!");
+        return;
+      }
+
       const data = await res.json();
       if (res.ok && data.explanation) {
         setAiExplanations(prev => ({ ...prev, [qKey]: data.explanation }));
         toast.success("Gia sư QIU đã trả lời!");
       } else {
-        if (res.status === 429 || data.error === 'Too Many Requests') {
-           toast.error('QIU AI đang quá tải do nhiều người dùng. Vui lòng thử lại sau 1 phút nhé!');
-        } else {
-           toast.error(data.error || "AI đang bận, vui lòng thử lại sau!");
-        }
+        toast.error(data.error || "AI đang bận, vui lòng thử lại sau!");
       }
     } catch (_err) {
-      toast.error("Vui lòng kiểm tra lại kết nối thử lại sau!");
+      toast.error("Có lỗi kết nối đến AI Tutor.");
     } finally {
-      setAiLoading(prev => ({ ...prev, [qKey]: false }));
+      setIsExplaining(false); // 2. LUÔN LUÔN tắt loading dù thành công hay thất bại
     }
   };
 
@@ -665,15 +667,15 @@ export default function QuizPage() {
                 {!aiExplanations[`${subjectId}_${state.currentIdx}`] ? (
                   <button 
                    onClick={() => handleAIExplain(state.currentIdx)}
-                   disabled={!!aiLoading[`${subjectId}_${state.currentIdx}`]}
+                   disabled={isExplaining}
                    className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] text-white text-sm font-bold shadow-lg shadow-[#6c5ce7]/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 disabled:hover:scale-100"
                   >
-                    {aiLoading[`${subjectId}_${state.currentIdx}`] ? (
+                    {isExplaining ? (
                       <Loader2 size={18} className="animate-spin" />
                     ) : (
                       <Sparkles size={18} />
                     )}
-                    <span>{aiLoading[`${subjectId}_${state.currentIdx}`] ? "✨ Đang phân tích..." : "✨ Giải thích bằng AI"}</span>
+                    <span>{isExplaining ? "✨ Đang phân tích..." : "✨ Giải thích bằng AI"}</span>
                   </button>
                 ) : (
                  <div className="p-6 rounded-3xl bg-[#6c5ce7]/5 border border-[#6c5ce7]/20 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 relative overflow-hidden">
