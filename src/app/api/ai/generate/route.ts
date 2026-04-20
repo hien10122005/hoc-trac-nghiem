@@ -59,10 +59,14 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ error: "Lỗi AI Smart Review (Fallback failed): " + (lastError?.message || "Unknown error") }, { status: 502 });
+    const googleErrorMessage = lastError?.message || "Lỗi không xác định từ Google API";
+    return NextResponse.json({ 
+      error: `Google API Error: ${googleErrorMessage}`,
+      suggestion: "Vui lòng kiểm tra lại Quota hoặc Billing của Key này tại Google AI Studio."
+    }, { status: 502 });
 
   } catch (error: any) {
     console.error("AI API Error:", error);
-    return NextResponse.json({ error: error.message || "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi Server: " + (error.message || "Unknown error") }, { status: 500 });
   }
 }

@@ -104,30 +104,39 @@ export default function AnalyticsPage() {
           // Note: If no composite index exists for [userId + createdAt], 
           // we fallback to fetching without orderBy and sort client-side.
           let q;
+          q = query(
+            collection(db, "results"),
+            where("userId", "==", user.uid),
+            orderBy("createdAt", "desc"),
+            limit(20)
+          );
+          
+          let snapshot;
           try {
-            q = query(
-              collection(db, "results"),
-              where("userId", "==", user.uid),
-              orderBy("createdAt", "desc"),
-              limit(20)
-            );
+            snapshot = await getCachedDocs(q);
           } catch (e) {
-            console.warn("Index not found, fetching without order/limit fallback");
-            q = query(
+            console.warn("Index not found, fetching without order/limit fallback:", e);
+            const fallbackQ = query(
               collection(db, "results"),
               where("userId", "==", user.uid)
             );
+            snapshot = await getCachedDocs(fallbackQ);
           }
-          
-          const snapshot = await getCachedDocs(q);
+
           let data = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           })) as QuizResultData[];
 
-          // Sort client-side anyway to ensure order
+          // Sort client-side anyway to ensure order and limit
           data.sort((a, b) => {
             const dateA = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+            const dateB = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+            return dateB - dateA;
+          });
+
+          // Apply limit client-side if fallback was used
+          data = data.slice(0, 20);
             const dateB = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
             return dateA - dateB;
           });

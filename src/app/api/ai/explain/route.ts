@@ -83,14 +83,18 @@ Yêu cầu:
     }
 
     // Nếu chạy hết vòng lặp mà vẫn lỗi
-    console.error("All AI models failed:", lastError);
-    if (lastError?.message?.includes("429")) {
-      return NextResponse.json({ error: "QIU AI đang quá tải (Tất cả Model). Vui lòng thử lại sau 1 phút!" }, { status: 429 });
-    }
-    return NextResponse.json({ error: "Lỗi AI Tutor: " + (lastError?.message || "Unknown error") }, { status: 500 });
+    console.error("All AI models failed. Last error from Google:", lastError);
+    
+    const googleErrorMessage = lastError?.message || "Lỗi không xác định từ Google API";
+    
+    // Trả về lỗi chi tiết để người dùng chẩn đoán Key
+    return NextResponse.json({ 
+      error: `Google API Error: ${googleErrorMessage}`,
+      suggestion: "Vui lòng kiểm tra lại Quota hoặc Billing của Key này tại Google AI Studio."
+    }, { status: 429 });
 
   } catch (err: any) {
     console.error("AI Route Panic:", err);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi hệ thống (Internal): " + err.message }, { status: 500 });
   }
 }
