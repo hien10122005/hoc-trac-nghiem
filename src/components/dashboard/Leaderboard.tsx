@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { motion } from "framer-motion";
+import { Trophy, Medal, User } from "lucide-react";
 
 interface LeaderboardEntry {
   userId: string;

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import * as mammoth from "mammoth";
+import TurndownService from "turndown";
 import { 
   Plus, 
   Search, 
@@ -180,20 +181,27 @@ export default function MaterialsPage() {
       try {
         const arrayBuffer = event.target?.result as ArrayBuffer;
         
-        // mammoth.convertToMarkdown converts docx to Markdown
-        const result = await mammoth.convertToMarkdown({ arrayBuffer });
+        // Step 1: Convert DOCX to HTML using mammoth
+        const result = await mammoth.convertToHtml({ arrayBuffer });
         
         if (result.value) {
-          setContent(result.value);
+          // Step 2: Convert HTML to Markdown using Turndown
+          const turndownService = new TurndownService({
+            headingStyle: 'atx',
+            codeBlockStyle: 'fenced'
+          });
+          
+          const markdownContent = turndownService.turndown(result.value);
+          setContent(markdownContent);
           
           // Auto-set title if empty
           if (!title.trim()) {
             // Extract first line as title if it looks like a header
-            const firstLine = result.value.split('\n')[0].replace(/^#+\s*/, '').trim();
+            const firstLine = markdownContent.split('\n')[0].replace(/^#+\s*/, '').trim();
             if (firstLine) setTitle(firstLine);
           }
           
-          toast.success("Đã chuyển đổi file Word thành công!");
+          toast.success("Đã chuyển đổi file Word (via HTML) thành công!");
         } else {
           toast.error("Không tìm thấy nội dung trong file Word.");
         }
@@ -202,7 +210,7 @@ export default function MaterialsPage() {
         if (fileInputRef.current) fileInputRef.current.value = "";
       } catch (err: any) {
         console.error("Word conversion error:", err);
-        toast.error("Lỗi khi đọc file Word: " + (err.message || "Unknown error"));
+        toast.error("Lỗi khi đọc file Word: " + (err.message || "Định dạng file không hỗ trợ hoặc bị hỏng"));
       } finally {
         setIsParsingWord(false);
       }
