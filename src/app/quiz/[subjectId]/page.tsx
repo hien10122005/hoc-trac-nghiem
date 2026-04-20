@@ -238,14 +238,14 @@ export default function QuizPage() {
     const score = total > 0 ? Math.round((correct / total) * 10) : 0;
     
     // Optimized Result Saving (1 Write Document = 1 Session)
-    if (user) {
+    if (_user) {
       try {
-        const userId = user.uid;
+        const userId = _user.uid;
         
         // 1. Lưu kết quả thi chi tiết (Dành cho bảng lịch sử)
         await addDoc(collection(db, "results"), {
           userId,
-          userEmail: user.email,
+          userEmail: _user.email,
           subjectId,
           subjectName,
           score,
@@ -333,7 +333,7 @@ export default function QuizPage() {
         }
       }());
     }
-  }, [state, subjectId, subjectName, user]);
+  }, [state, subjectId, subjectName, _user]);
 
   // Timer logic
   useEffect(() => {
@@ -413,8 +413,8 @@ export default function QuizPage() {
   };
 
   const toggleBookmark = async (question: Question) => {
-    if (!user) return;
-    const userId = user.uid;
+    if (!_user) return;
+    const userId = _user.uid;
     const qId = question.id;
     const isBookmarked = savedQuestionIds.has(qId);
     
@@ -471,7 +471,7 @@ export default function QuizPage() {
   };
 
   // UI States
-  if (loading) {
+  if (_loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0c0e17]">
         <Loader2 className="h-10 w-10 animate-spin text-[#6c5ce7]" />

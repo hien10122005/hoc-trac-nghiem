@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo } from "react";
 import { auth, db, getCachedDocs } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, getDoc, orderBy, limit } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { QuizResultData } from "@/types/quiz";
+import { SubjectStats } from "@/types/user";
 import {
   BarChart3,
   TrendingUp,
@@ -43,13 +45,7 @@ interface AggregatedStats {
   totalCorrect: number;
   totalQuestions: number;
   streak: number;
-  subjectStats: Record<string, {
-    name: string;
-    totalExams: number;
-    totalScoreSum: number;
-    totalCorrect: number;
-    totalQuestions: number;
-  }>;
+  subjectStats: Record<string, SubjectStats>;
 }
 
 interface TooltipPayload {
@@ -77,7 +73,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 };
 
 export default function AnalyticsPage() {
-  const [results, setResults] = useState<QuizResult[]>([]);
+  const [results, setResults] = useState<QuizResultData[]>([]);
   const [aggregatedStats, setAggregatedStats] = useState<AggregatedStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSubject, setSelectedSubject] = useState("all");
@@ -91,7 +87,7 @@ export default function AnalyticsPage() {
           // 1. Fetch Aggregated Stats (1 Read)
           const statsDoc = await getDoc(doc(db, "user_stats", user.uid));
           if (statsDoc.exists()) {
-            setAggregatedStats(statsDoc.data());
+            setAggregatedStats(statsDoc.data() as AggregatedStats);
           }
 
           // 2. Fetch Recent Results (limit 20) instead of all to save READs
@@ -117,7 +113,7 @@ export default function AnalyticsPage() {
           let data = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
-          })) as QuizResult[];
+          })) as QuizResultData[];
 
           // Sort client-side anyway to ensure order
           data.sort((a, b) => {
@@ -142,7 +138,7 @@ export default function AnalyticsPage() {
 
   // ─── Derived Data ───────────────────────────────────
   const subjects = useMemo(() => {
-    const set = new Set(results.map((r) => r.subjectName));
+    const set = new Set(results.map((r) => r.subjectName).filter((s): s is string => !!s));
     return Array.from(set);
   }, [results]);
 

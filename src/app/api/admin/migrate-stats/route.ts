@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { QuizResultData } from "@/types/quiz";
+import { FirestoreUserData, SubjectStats } from "@/types/user";
 
 /**
  * API Chạy Migration: Đồng bộ hóa dữ liệu cũ sang user_stats
@@ -18,14 +20,22 @@ export async function POST(request: Request) {
 
     // 1. Lấy tất cả results từ Firestore
     const resultsSnap = await getDocs(collection(db, targetCollection || "results"));
-    const results = resultsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Record<string, unknown>[];
+    const results = resultsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as unknown as QuizResultData[];
 
     if (results.length === 0) {
       return NextResponse.json({ message: "Không có dữ liệu results để migrate." });
     }
 
-    // 2. Nhóm dữ liệu theo userId để tính toán
-    const userStatsMap: Record<string, { totalExams: number; totalCorrect: number; totalQuestions: number; totalScoreSum: number; bestScore: number; subjectStats: Record<string, unknown> }> = {};
+    // 2. NhAm dA liAu theo userId AS tAnh toAn
+    type MigrationStatsMap = Record<string, { 
+      totalExams: number; 
+      totalCorrect: number; 
+      totalQuestions: number; 
+      totalScoreSum: number; 
+      bestScore: number; 
+      subjectStats: Record<string, SubjectStats> 
+    }>;
+    const userStatsMap: MigrationStatsMap = {};
 
     results.forEach((r) => {
       const uid = r.userId as string;
@@ -38,14 +48,15 @@ export async function POST(request: Request) {
           totalQuestions: 0,
           totalScoreSum: 0,
           bestScore: 0,
-          subjectStats: {} as Record<string, unknown>
+          subjectStats: {} as Record<string, SubjectStats>
         };
       }
 
       const stats = userStatsMap[uid];
-      stats.totalExams += 1;
-      stats.totalQuestions += r.totalQuestions || 0;
-      stats.totalScoreSum += r.score || 0;
+      stats.totalExams = (stats.totalExams || 0) + 1;
+      stats.totalQuestions = (stats.totalQuestions || 0) + (r.totalQuestions || 0);
+      stats.totalScoreSum = (stats.totalScoreSum || 0) + (r.score || 0);
+      stats.totalCorrect = (stats.totalCorrect || 0) + (r.correctCount || 0);
       
       if ((r.score || 0) > stats.bestScore) {
         stats.bestScore = r.score;
@@ -60,7 +71,8 @@ export async function POST(request: Request) {
             totalExams: 0,
             totalCorrect: 0,
             totalQuestions: 0,
-            totalScoreSum: 0
+            totalScoreSum: 0,
+            bestScore: 0
           };
         }
         const s = stats.subjectStats[sid];

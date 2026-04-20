@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
+import { FirestoreUserData } from "@/types/user";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
@@ -28,7 +29,7 @@ export default function DashboardLayout({
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
+  const [userData, setUserData] = useState<FirestoreUserData | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -40,7 +41,7 @@ export default function DashboardLayout({
         // Fetch additional user data from Firestore
         const userDoc = await getDoc(doc(db, "users", authUser.uid));
         if (userDoc.exists()) {
-          setUserData(userDoc.data());
+          setUserData(userDoc.data() as FirestoreUserData);
         }
       } else {
         router.push("/login");

@@ -7,6 +7,7 @@ import {
   EmailAuthProvider 
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { FirestoreUserData } from "@/types/user";
 import { 
   ShieldCheck, 
   Lock, 
@@ -21,7 +22,7 @@ import toast from "react-hot-toast";
 export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
+  const [userData, setUserData] = useState<FirestoreUserData | null>(null);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);

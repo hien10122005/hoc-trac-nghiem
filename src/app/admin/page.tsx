@@ -17,6 +17,8 @@ import {
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
+import { FirestoreUserData } from "@/types/user";
+import { MaterialData } from "@/types/material";
 import { 
   BookOpen, 
   Database, 
@@ -34,13 +36,6 @@ import {
 interface FirestoreResultData {
   userEmail?: string;
   subjectName?: string;
-  createdAt: Timestamp;
-}
-
-interface FirestoreUserData {
-  name?: string;
-  email?: string;
-  role?: string;
   createdAt: Timestamp;
 }
 
@@ -63,7 +58,7 @@ export default function AdminDashboard() {
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
+  const [userData, setUserData] = useState<FirestoreUserData | null>(null);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
@@ -79,7 +74,7 @@ export default function AdminDashboard() {
         
         if (userData?.role === "admin") {
           setIsAdmin(true);
-          setUserData(userData as Record<string, unknown>);
+          setUserData(userData);
         } else {
           setIsAdmin(false);
           setIsLoading(false);
@@ -145,7 +140,7 @@ export default function AdminDashboard() {
 
     const unsubMaterials = onSnapshot(qMaterials, (snapshot) => {
       recentMaterials = snapshot.docs.map(snap => {
-        const data = snap.data() as Record<string, unknown>;
+        const data = snap.data() as MaterialData;
         return {
           id: snap.id,
           type: "quiz" as const,

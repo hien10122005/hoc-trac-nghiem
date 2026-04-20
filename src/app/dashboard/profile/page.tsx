@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { FirestoreUserData } from "@/types/user";
+import { doc, getDoc, collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { QuizResultData } from "@/types/quiz";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import {
   User,
@@ -123,7 +125,7 @@ const BADGE_DEFS = [
 
 export default function ProfilePage() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userData, setUserData] = useState<{ name?: string; createdAt?: unknown } | null>(null);
+  const [userData, setUserData] = useState<FirestoreUserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<UserStats | null>(null);
 
@@ -133,7 +135,7 @@ export default function ProfilePage() {
         setUser(authUser);
         const userDoc = await getDoc(doc(db, "users", authUser.uid));
         if (userDoc.exists()) {
-          setUserData(userDoc.data());
+          setUserData(userDoc.data() as FirestoreUserData);
         }
 
         // Fetch results for badge calculation
@@ -144,7 +146,7 @@ export default function ProfilePage() {
             orderBy("createdAt", "desc")
           );
           const snapshot = await getDocs(q);
-          const results = snapshot.docs.map((d) => d.data());
+          const results = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as unknown as QuizResultData[];
 
           if (results.length > 0) {
             const totalExams = results.length;

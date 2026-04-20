@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Quote, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
-import { signOut } from "firebase/auth";
+import { signOut, onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";

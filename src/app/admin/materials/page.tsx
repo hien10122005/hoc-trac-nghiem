@@ -36,6 +36,7 @@ import {
   updateDoc
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { MaterialData } from "@/types/material";
 import toast from "react-hot-toast";
 
 interface Subject {
@@ -43,22 +44,11 @@ interface Subject {
   name: string;
 }
 
-interface Material {
-  id: string;
-  title: string;
-  description: string;
-  url: string;
-  subjectId: string;
-  type: string; // 'pdf' | 'link' | 'docx' | 'youtube' | 'reading'
-  content?: string; // Markdown content for reading lessons
-  createdAt: { toDate: () => Date };
-}
-
 type MaterialCategory = 'all' | 'video' | 'document' | 'reading';
 
 export default function MaterialsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [materials, setMaterials] = useState<Material[]>([]);
+  const [materials, setMaterials] = useState<MaterialData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,7 +76,7 @@ export default function MaterialsPage() {
 
     const qMat = query(collection(db, "materials"), orderBy("createdAt", "desc"));
     const unsubMat = onSnapshot(qMat, (snapshot) => {
-      setMaterials(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Material)));
+      setMaterials(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MaterialData)));
       setLoading(false);
     });
 
@@ -106,7 +96,7 @@ export default function MaterialsPage() {
     setContent("");
   };
 
-  const handleOpenEdit = (m: Material) => {
+  const handleOpenEdit = (m: MaterialData) => {
     setEditingId(m.id);
     setTitle(m.title);
     setDescription(m.description);
