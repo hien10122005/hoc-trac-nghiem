@@ -9,7 +9,10 @@ import {
   addDoc,
   serverTimestamp,
   setDoc,
-  increment
+  updateDoc,
+  increment,
+  arrayUnion,
+  arrayRemove
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -32,7 +35,6 @@ import {
   Brain,
   Bookmark
 } from "lucide-react";
-import { arrayUnion, arrayRemove } from "firebase/firestore";
 import toast from "react-hot-toast";
 import confetti from "canvas-confetti";
 
