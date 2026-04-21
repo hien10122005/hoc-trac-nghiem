@@ -107,6 +107,9 @@ export default function QuizPage() {
       if (buckets[lvl]) buckets[lvl].push(q);
     });
 
+    // Logging distribution
+    console.log(`QIU-Debug: Ngân hàng hiện có: L1: ${buckets[1].length}, L2: ${buckets[2].length}, L3: ${buckets[3].length}, L4: ${buckets[4].length}`);
+
     const totalNeeded = limit === "all" ? all.length : limit;
     
     // Calculate targets based on 4:3:2:1 ratio
@@ -126,14 +129,26 @@ export default function QuizPage() {
     const selected: Question[] = [];
     let overflow = 0;
 
-    // First pass: take from specified levels
-    [4, 3, 2, 1].forEach(lvl => {
+    // First pass: take from specified levels [4, 3, 2, 1]
+    const levels = [4, 3, 2, 1];
+    levels.forEach(lvl => {
       const bucket = shuffleArray(buckets[lvl]);
       const target = targets[lvl] + overflow;
       const count = Math.min(bucket.length, target);
       selected.push(...bucket.slice(0, count));
-      overflow = target - count; // Keep remainder to fill from other levels
+      overflow = target - count; // Carry over if this level didn't have enough
     });
+
+    // If still have overflow after going through 4->1, go back 1->4 to soak up any remaining capacity
+    if (overflow > 0) {
+      [1, 2, 3, 4].forEach(lvl => {
+        if (overflow <= 0) return;
+        const bucket = buckets[lvl].filter(q => !selected.includes(q));
+        const count = Math.min(bucket.length, overflow);
+        selected.push(...shuffleArray(bucket).slice(0, count));
+        overflow -= count;
+      });
+    }
 
     // Final shuffle and trim
     const final = shuffleArray(selected);
@@ -241,6 +256,8 @@ export default function QuizPage() {
         // Fetch Questions
         const quizDoc = await getDoc(doc(db, "quizzes", subjectId));
         const rawQuestions = quizDoc.exists() ? (quizDoc.data().questions as Question[] || []) : [];
+        
+        console.log(`QIU-Debug: Loaded ${rawQuestions.length} questions for subject ${subjectId}`);
 
         setState(prev => ({
           ...prev,
@@ -259,6 +276,15 @@ export default function QuizPage() {
   const handleStartQuiz = () => {
     setState(prev => {
       const prepared = prepareMixedQuestions(prev.allQuestions, selectedLimit);
+      const requestedCount = selectedLimit === "all" ? prev.allQuestions.length : selectedLimit;
+      
+      if (prepared.length < requestedCount) {
+        toast(`Kho hiện có ${prepared.length} câu, hệ thống sẽ bắt đầu bài thi với số câu này.`, {
+          icon: 'ℹ️',
+          style: { background: '#10101f', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
+        });
+      }
+
       return {
         ...prev,
         questions: prepared,
@@ -618,7 +644,7 @@ export default function QuizPage() {
     );
   }
 
-  if (state.questions.length === 0) {
+  if (!_loading && state.allQuestions.length === 0) {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center bg-[#0c0e17] text-[#f0f0fd] p-8 text-center">
         <div className="h-20 w-20 rounded-3xl bg-white/5 flex items-center justify-center mb-6 border border-white/10">
