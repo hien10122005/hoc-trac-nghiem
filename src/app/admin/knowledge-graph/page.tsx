@@ -219,28 +219,43 @@ export default function KnowledgeGraphAdmin() {
     if (!selectedSubject) return;
     setLoading(true);
     try {
-      const mapData = {
+      // Clean and sanitize data for Firestore
+      const sanitizedNodes = nodes.map(n => ({
+        id: String(n.id),
+        position: {
+          x: Number(n.position?.x) || 0,
+          y: Number(n.position?.y) || 0
+        },
+        data: {
+          label: String(n.data?.label || ""),
+          description: String(n.data?.description || ""),
+          status: String(n.data?.status || 'unlocked'),
+          type: String(n.data?.type || "")
+        }
+      }));
+
+      const sanitizedEdges = edges.map(e => ({
+        id: String(e.id || `e-${e.source}-${e.target}`),
+        source: String(e.source),
+        target: String(e.target),
+        label: String(e.label || "")
+      }));
+
+      const mapData = JSON.parse(JSON.stringify({
         subjectId: selectedSubject,
-        nodes: nodes.map(n => ({
-          id: n.id,
-          label: (n.data as any).label,
-          type: (n.data as any).type,
-          status: (n.data as any).status || 'unlocked',
-          position: n.position
-        })),
-        edges: edges.map(e => ({
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          label: e.label || ""
-        })),
-        updatedAt: serverTimestamp()
-      };
+        nodes: sanitizedNodes,
+        edges: sanitizedEdges,
+        updatedAt: new Date().toISOString() // Use ISO string if serverTimestamp fails or causes issues
+      }));
       
+      // Use serverTimestamp for Firestore consistency
+      mapData.updatedAt = serverTimestamp();
+
       await setDoc(doc(db, "knowledge_maps", selectedSubject), mapData);
       toast.success("Đã cập nhật hệ thống sơ đồ tri thức!");
-    } catch (err) {
-      toast.error("Lỗi khi lưu dữ liệu.");
+    } catch (err: any) {
+      console.error("Firestore Save Error:", err);
+      toast.error(`Lỗi khi lưu dữ liệu: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
