@@ -57,6 +57,8 @@ export default function KnowledgeGraphAdmin() {
   
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [activeTab, setActiveTab] = useState<'text' | 'file'>('text');
+  const [rawText, setRawText] = useState("");
 
   // Load subjects
   useEffect(() => {
@@ -145,7 +147,8 @@ export default function KnowledgeGraphAdmin() {
       ...base,
       background: status === 'completed' ? 'rgba(0, 206, 201, 0.1)' : 'rgba(108, 92, 231, 0.05)',
       color: status === 'completed' ? '#00cec9' : '#fff',
-      borderColor: status === 'completed' ? '#00cec9' : '#6c5ce7'
+      borderColor: status === 'completed' ? '#00cec9' : '#6c5ce7',
+      boxShadow: status === 'completed' ? '0 0 20px rgba(0, 206, 201, 0.1)' : 'none'
     };
   };
 
@@ -158,9 +161,13 @@ export default function KnowledgeGraphAdmin() {
     }, eds));
   }, [setEdges]);
 
-  const handleAutoConnect = async () => {
-    if (!selectedSubject || materials.length === 0) {
-      toast.error("Vui lòng chọn môn học có tài liệu.");
+  const handleGenerateGraph = async () => {
+    if (!selectedSubject) {
+      toast.error("Vui lòng chọn môn học.");
+      return;
+    }
+    if (activeTab === 'text' && !rawText.trim()) {
+      toast.error("Vui lòng nhập nội dung văn bản.");
       return;
     }
     
@@ -170,13 +177,22 @@ export default function KnowledgeGraphAdmin() {
       const res = await fetch("/api/ai/generate-graph", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subjectName, materials })
+        body: JSON.stringify({ subjectName, rawContent: rawText })
       });
       
       const data = await res.json();
-      if (data.edges) {
-        const aiEdges = data.edges.map((e: any, index: number) => ({
-          id: `ai-${Date.now()}-${index}`,
+      if (data.nodes && data.edges) {
+        // Map AI Nodes to ReactFlow Nodes
+        const rfNodes: Node[] = data.nodes.map((n: any) => ({
+          id: n.id,
+          position: { x: n.x || Math.random() * 500, y: n.y || Math.random() * 500 },
+          data: { label: n.label, description: n.description, status: 'unlocked' },
+          style: getNodeStyle('unlocked')
+        }));
+
+        // Map AI Edges to ReactFlow Edges
+        const rfEdges: Edge[] = data.edges.map((e: any) => ({
+          id: e.id || `e-${e.source}-${e.target}`,
           source: e.source,
           target: e.target,
           label: e.label,
@@ -185,8 +201,10 @@ export default function KnowledgeGraphAdmin() {
           labelStyle: { fill: '#94a3b8', fontSize: 9, fontWeight: 600 },
           markerEnd: { type: MarkerType.ArrowClosed, color: '#6c5ce7' }
         }));
-        setEdges(aiEdges);
-        toast.success(`AI đã tìm thấy ${aiEdges.length} liên kết logic!`);
+
+        setNodes(rfNodes);
+        setEdges(rfEdges);
+        toast.success(`AI đã tạo thành công ${rfNodes.length} nút kiến thức!`);
       } else {
         throw new Error(data.error || "Không có kết quả");
       }
@@ -230,14 +248,6 @@ export default function KnowledgeGraphAdmin() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-black text-white tracking-tighter">
-            AI <span className="bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] bg-clip-text text-transparent">Graph Creator</span>
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">Xây dựng mạng lưới tri thức tự động bằng trí tuệ nhân tạo.</p>
-        </div>
-
         <div className="flex items-center gap-3">
            <select 
               value={selectedSubject}
@@ -249,17 +259,8 @@ export default function KnowledgeGraphAdmin() {
            </select>
 
            <button 
-              onClick={handleAutoConnect}
-              disabled={!selectedSubject || isGenerating || loading}
-              className="flex items-center gap-2 bg-white/5 hover:bg-[#6c5ce7]/20 border border-white/10 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
-           >
-              {isGenerating ? <RefreshCw size={18} className="animate-spin text-[#6c5ce7]" /> : <Brain size={18} className="text-[#6c5ce7]" />}
-              <span>AI Auto-Connect</span>
-           </button>
-
-           <button 
               onClick={handleSave}
-              disabled={!selectedSubject || loading}
+              disabled={!selectedSubject || loading || nodes.length === 0}
               className="flex items-center gap-2 bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] px-6 py-2.5 rounded-xl text-sm font-black text-white shadow-lg shadow-[#6c5ce7]/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
            >
               {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
@@ -268,42 +269,107 @@ export default function KnowledgeGraphAdmin() {
         </div>
       </div>
 
-      <div className="flex-1 rounded-3xl border border-white/5 bg-[#05050f] overflow-hidden relative shadow-inner">
-        {selectedSubject ? (
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            fitView
-            style={{ backgroundColor: '#10101f', color: '#fff' }}
-          >
-            <Background color="#1a1a2e" gap={20} />
-            <Controls className="!bg-[#10101f] !border-white/10 !fill-white" />
-            <MiniMap 
-                nodeColor="#6c5ce7" 
-                maskColor="rgba(0,0,0,0.7)" 
-                className="!bg-[#10101f] !border-white/10"
-            />
-            
-            <Panel position="top-right" className="bg-black/40 backdrop-blur-md p-3 rounded-xl border border-white/5 m-4">
-               <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                 <MousePointer2 size={10} /> Thao tác Admin
+      {/* Generation Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+        <div className="lg:col-span-1 flex flex-col gap-4 h-full">
+            <div className="bg-[#10101f]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 flex flex-col h-full shadow-2xl relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+                  <Brain size={120} className="text-[#6c5ce7]" />
                </div>
-               <div className="space-y-1">
-                 <p className="text-[10px] text-slate-400">• Kéo node để sắp xếp vị trí bài học.</p>
-                 <p className="text-[10px] text-slate-400">• Quay vòng tròn ở các node để nối link mới.</p>
-                 <p className="text-[10px] text-slate-400">• Click vào cạnh để xóa hoặc đổi label.</p>
+
+               <div className="flex items-center gap-2 text-xs font-black text-[#6c5ce7] uppercase tracking-widest mb-6">
+                  <Layers size={14} />
+                  <span>Nguồn dữ liệu tri thức</span>
                </div>
-            </Panel>
-          </ReactFlow>
-        ) : (
-          <div className="h-full w-full flex flex-col items-center justify-center opacity-40">
-             <GitBranch size={48} className="text-slate-600 mb-4" />
-             <p className="text-slate-500 font-medium">Chọn một môn học phía trên để bắt đầu vẽ đồ thị.</p>
-          </div>
-        )}
+
+               <div className="flex bg-white/5 p-1 rounded-xl mb-6">
+                  <button 
+                    onClick={() => setActiveTab('text')}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'text' ? 'bg-[#6c5ce7] text-white shadow-lg shadow-[#6c5ce7]/20' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    Dán văn bản
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('file')}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'file' ? 'bg-[#6c5ce7] text-white shadow-lg shadow-[#6c5ce7]/20' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    Tải File
+                  </button>
+               </div>
+
+               {activeTab === 'text' ? (
+                 <div className="flex-1 flex flex-col min-h-0">
+                    <textarea 
+                      value={rawText}
+                      onChange={(e) => setRawText(e.target.value)}
+                      placeholder="Dán nội dung giáo trình, đề cương hoặc tài liệu ôn tập vào đây..."
+                      className="flex-1 w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-sm text-slate-300 outline-none focus:border-[#6c5ce7]/50 transition-all resize-none font-medium leading-relaxed scrollbar-hide"
+                    />
+                    <div className="mt-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                       <span>{rawText.length} ký tự</span>
+                       <span>Tối đa 50,000</span>
+                    </div>
+                 </div>
+               ) : (
+                 <div className="flex-1 flex items-center justify-center border-2 border-dashed border-white/5 rounded-2xl hover:border-[#6c5ce7]/30 transition-all cursor-pointer group">
+                    <div className="text-center">
+                       <RefreshCw size={32} className="mx-auto text-slate-600 mb-3 group-hover:text-[#6c5ce7] transition-colors" />
+                       <p className="text-xs font-bold text-slate-500 group-hover:text-slate-300">Tính năng Tải file sắp ra mắt</p>
+                       <p className="text-[10px] text-slate-600 mt-1">Dùng Tab Dán văn bản để trải nghiệm ngay</p>
+                    </div>
+                 </div>
+               )}
+
+               <button 
+                  onClick={handleGenerateGraph}
+                  disabled={!selectedSubject || isGenerating || (activeTab === 'text' && !rawText)}
+                  className="mt-6 w-full py-4 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#8271ff] text-white font-black uppercase tracking-wider shadow-xl shadow-[#6c5ce7]/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-3"
+               >
+                  {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Brain size={18} />}
+                  <span>{isGenerating ? "AI Đang phân tích..." : "Bắt đầu Phân tích"}</span>
+               </button>
+            </div>
+        </div>
+
+        <div className="lg:col-span-2 rounded-3xl border border-white/10 bg-[#050512] overflow-hidden relative shadow-inner group">
+          {selectedSubject ? (
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={(params) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: '#6c5ce7' } }, eds))}
+              fitView
+              style={{ backgroundColor: '#050512', color: '#fff' }}
+            >
+              <Background color="#1a1a2e" gap={20} />
+              <Controls className="!bg-[#10101f] !border-white/10 !fill-white" />
+              
+              <Panel position="top-right" className="bg-black/40 backdrop-blur-md p-3 rounded-xl border border-white/5 m-4">
+                 <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                   <MousePointer2 size={10} /> Preview & Edit
+                 </div>
+                 <p className="text-[9px] text-slate-400">Kéo thả các node AI sinh ra để căn chỉnh lộ trình.</p>
+              </Panel>
+            </ReactFlow>
+          ) : (
+            <div className="h-full w-full flex flex-col items-center justify-center opacity-40">
+               <GitBranch size={48} className="text-slate-600 mb-4" />
+               <p className="text-slate-500 font-medium">Chọn một môn học phía trên để bắt đầu.</p>
+            </div>
+          )}
+          {isGenerating && (
+            <div className="absolute inset-0 z-50 bg-[#050512]/60 backdrop-blur-sm flex items-center justify-center">
+               <div className="text-center space-y-4">
+                  <div className="relative">
+                    <Brain size={64} className="text-[#6c5ce7] animate-pulse mx-auto" />
+                    <div className="absolute inset-0 blur-2xl bg-[#6c5ce7]/20 rounded-full animate-pulse" />
+                  </div>
+                  <p className="text-sm font-black text-white uppercase tracking-widest animate-pulse">Trợ lý QIU đang kiến tạo sơ đồ...</p>
+               </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

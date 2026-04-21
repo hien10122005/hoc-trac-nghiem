@@ -9,36 +9,43 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { subjectName, materials } = body;
+    const { subjectName, rawContent } = body;
 
-    if (!materials || !Array.isArray(materials)) {
-      return NextResponse.json({ error: "Danh sách bài học không hợp lệ." }, { status: 400 });
+    if (!rawContent || typeof rawContent !== "string") {
+      return NextResponse.json({ error: "Nội dung văn bản không hợp lệ." }, { status: 400 });
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    const lessonsData = materials.map((m: any) => ({
-      id: m.id,
-      title: m.title,
-      description: m.description
-    }));
-
     const prompt = `
-Bạn là chuyên gia thiết kế lộ trình học tập cao cấp.
-Nhiệm vụ: Dựa vào danh sách bài học của môn "${subjectName || 'Chuyên ngành'}", hãy xác định các mối liên hệ logic, tiên quyết và ứng dụng giữa chúng.
+Bạn là một Senior Learning Architect chuyên nghiệp.
+Nhiệm vụ: Phân tích nội dung văn bản sau đây để xây dựng một "Sơ đồ tri thức" (Knowledge Graph) hoàn chỉnh cho môn học "${subjectName || 'Chuyên ngành'}".
 
-Danh sách bài học:
-${JSON.stringify(lessonsData)}
+Nội dung văn bản:
+"${rawContent.substring(0, 50000)}" 
 
-Yêu cầu trả về mảng JSON các "edges" nối các bài học. Mỗi edge gồm:
-- source: ID của bài học làm tiền đề (bài học trước).
-- target: ID của bài học tiếp theo (bài học sau).
-- label: Giải thích ngắn gọn lý do kết nối (Ví dụ: "Kiến thức nền", "Ứng dụng thực tế", "Nâng cao").
+Yêu cầu kỹ thuật:
+1. Trích xuất tối thiểu 10-15 node quan trọng nhất thể hiện các chủ đề, bài học hoặc mục tiêu kiến thức.
+2. Xác định các mối liên hệ (edges) giữa chúng:
+   - "Prerequisite": Mối quan hệ tiên quyết (Bài A phải học trước bài B).
+   - "Next Step": Mối quan hệ tiếp nối logic.
+   - "Related": Mối quan hệ liên quan bổ trợ.
+3. Tự động tính toán tọa độ (x, y) để sơ đồ trông cân đối (Ví dụ: x tăng dần theo tiến trình, y thay đổi để phân nhánh).
 
-Quy tắc:
-1. Không tạo vòng lặp (A -> B -> A).
-2. Chỉ tạo các liên kết thực sự có ý nghĩa sư phạm.
-3. Trả về đúng định dạng JSON: { "edges": [{ "source": "...", "target": "...", "label": "..." }] }
+Trả về cấu trúc JSON chính xác như sau:
+{
+  "nodes": [
+    { "id": "node-1", "label": "Tên chủ đề", "description": "Mô tả ngắn", "x": 100, "y": 100 }
+  ],
+  "edges": [
+    { "id": "e1-2", "source": "node-1", "target": "node-2", "label": "Tiền đề" }
+  ]
+}
+
+Quy tắc quan trọng:
+- Trả về DUY NHẤT mã JSON. Không có văn bản giải thích.
+- Các node phải có ID duy nhất.
+- Đảm bảo sơ đồ không có vòng lặp logic (Cycle).
 `;
 
     const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-1.5-flash"];
@@ -49,7 +56,7 @@ Quy tắc:
         const model = genAI.getGenerativeModel({ 
           model: modelName,
           generationConfig: {
-            temperature: 0.1,
+            temperature: 0.2,
             responseMimeType: "application/json",
           }
         });

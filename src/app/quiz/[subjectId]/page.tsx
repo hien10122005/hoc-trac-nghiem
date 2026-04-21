@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import confetti from "canvas-confetti";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { Question } from "@/types/question";
 import { useBloomProgress } from "@/hooks/useBloomProgress";
@@ -56,6 +57,7 @@ interface QuizState {
   score: number;
   correctCount: number;
   reviewMode: boolean;
+  selectedLimit?: number | "all";
 }
 
 export default function QuizPage() {
@@ -90,9 +92,52 @@ export default function QuizPage() {
   const [aiExplanations, setAiExplanations] = useState<Record<string, string>>({});
   const [isExplaining, setIsExplaining] = useState(false);
   const isExplainingRef = useRef(false);
-  const [savedQuestionIds, setSavedQuestionIds] = useState<Set<string>>(new Set());
+  const [isSetupMode, setIsSetupMode] = useState(true);
+  const [selectedLimit, setSelectedLimit] = useState<number | "all">(10);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper logic for Bloom Ratio 4:3:2:1
+  const prepareMixedQuestions = useCallback((all: Question[], limit: number | "all") => {
+    // Group questions by level
+    const buckets: Record<number, Question[]> = { 1: [], 2: [], 3: [], 4: [] };
+    all.forEach(q => {
+      const lvl = q.bloomLevel || 1;
+      if (buckets[lvl]) buckets[lvl].push(q);
+    });
+
+    const totalNeeded = limit === "all" ? all.length : limit;
+    
+    // Calculate targets based on 4:3:2:1 ratio
+    const targets: Record<number, number> = {
+      1: Math.floor(totalNeeded * 0.4),
+      2: Math.floor(totalNeeded * 0.3),
+      3: Math.floor(totalNeeded * 0.2),
+      4: Math.floor(totalNeeded * 0.1)
+    };
+
+    // Adjust for rounding errors
+    let currentTotal = Object.values(targets).reduce((a, b) => a + b, 0);
+    if (limit !== "all" && currentTotal < limit) {
+      targets[1] += (limit - currentTotal);
+    }
+
+    const selected: Question[] = [];
+    let overflow = 0;
+
+    // First pass: take from specified levels
+    [4, 3, 2, 1].forEach(lvl => {
+      const bucket = shuffleArray(buckets[lvl]);
+      const target = targets[lvl] + overflow;
+      const count = Math.min(bucket.length, target);
+      selected.push(...bucket.slice(0, count));
+      overflow = target - count; // Keep remainder to fill from other levels
+    });
+
+    // Final shuffle and trim
+    const final = shuffleArray(selected);
+    return limit === "all" ? final : final.slice(0, limit);
+  }, []);
 
   // Network Status
   useEffect(() => {
@@ -137,6 +182,7 @@ export default function QuizPage() {
           timeLeft: draftData.timeLeft || prev.timeLeft,
           currentIdx: draftData.currentIdx || prev.currentIdx
        }));
+       setIsSetupMode(false); // Skip setup if restoring draft
      }
      setShowResumeModal(false);
   };
@@ -195,22 +241,10 @@ export default function QuizPage() {
         const quizDoc = await getDoc(doc(db, "quizzes", subjectId));
         const rawQuestions = quizDoc.exists() ? (quizDoc.data().questions as Question[] || []) : [];
 
-        setState(prev => {
-          const filtered = rawQuestions.filter(q => (q.bloomLevel || 1) === prev.activeLevel);
-          const shuffled = shuffleArray(filtered).map(q => {
-            const correctText = q.options[q.correctAnswer];
-            const shuffledOptions = shuffleArray(q.options);
-            const newCorrectAnswer = shuffledOptions.indexOf(correctText);
-            return { ...q, options: shuffledOptions, correctAnswer: newCorrectAnswer };
-          });
-
-          return {
-            ...prev,
-            allQuestions: rawQuestions,
-            questions: shuffled,
-            userAnswers: new Array(shuffled.length).fill(null)
-          };
-        });
+        setState(prev => ({
+          ...prev,
+          allQuestions: rawQuestions
+        }));
       } catch (error) {
         console.error("Error loading quiz:", error);
       } finally {
@@ -220,6 +254,19 @@ export default function QuizPage() {
 
     loadQuiz();
   }, [subjectId]);
+
+  const handleStartQuiz = () => {
+    setState(prev => {
+      const prepared = prepareMixedQuestions(prev.allQuestions, selectedLimit);
+      return {
+        ...prev,
+        questions: prepared,
+        userAnswers: new Array(prepared.length).fill(null),
+        selectedLimit
+      };
+    });
+    setIsSetupMode(false);
+  };
 
   const handleFinishQuiz = useCallback(async (currentState?: QuizState) => {
     const s = currentState || state;
@@ -239,12 +286,12 @@ export default function QuizPage() {
 
     const score = total > 0 ? Math.round((correct / total) * 10) : 0;
     
-    // Optimized Result Saving (1 Write Document = 1 Session)
+    // Optimized Result Saving
     if (_user) {
       try {
         const userId = _user.uid;
         
-        // 1. Lưu kết quả thi chi tiết (Dành cho bảng lịch sử)
+        // 1. Save detailed result
         await addDoc(collection(db, "results"), {
           userId,
           userEmail: _user.email,
@@ -256,9 +303,8 @@ export default function QuizPage() {
           createdAt: serverTimestamp()
         });
 
-        // 2. Aggregation: Cập nhật tài liệu tổng hợp user_stats
+        // 2. Aggregation: Update user_stats
         const statsRef = doc(db, "user_stats", userId);
-        
         const updateData: Record<string, any> = {
           totalExams: increment(1),
           totalCorrect: increment(correct),
@@ -267,39 +313,41 @@ export default function QuizPage() {
           lastUpdatedAt: serverTimestamp()
         };
 
-        // Cập nhật thống kê theo môn học cụ thể
+        // Subject stats
         updateData[`subjectStats.${subjectId}.totalExams`] = increment(1);
         updateData[`subjectStats.${subjectId}.totalCorrect`] = increment(correct);
         updateData[`subjectStats.${subjectId}.totalQuestions`] = increment(total);
         updateData[`subjectStats.${subjectId}.totalScoreSum`] = increment(score);
         updateData[`subjectStats.${subjectId}.name`] = subjectName;
 
-        // Cập nhật thống kê Bloom Level
-        const newCorrectStat = (userStats?.subjectStats?.[subjectId]?.bloomLevelStats?.[s.activeLevel]?.correct || 0) + correct;
-        const newTotalStat = (userStats?.subjectStats?.[subjectId]?.bloomLevelStats?.[s.activeLevel]?.total || 0) + total;
+        // Group quiz results by level for storage
+        const statsByLevel: Record<number, { correct: number, total: number }> = {};
+        s.questions.forEach((q, idx) => {
+          const lvl = q.bloomLevel || 1;
+          if (!statsByLevel[lvl]) statsByLevel[lvl] = { correct: 0, total: 0 };
+          statsByLevel[lvl].total++;
+          if (s.userAnswers[idx] === q.correctAnswer) {
+            statsByLevel[lvl].correct++;
+          }
+        });
 
-        updateData[`subjectStats.${subjectId}.bloomLevelStats.${s.activeLevel}.correct`] = increment(correct);
-        updateData[`subjectStats.${subjectId}.bloomLevelStats.${s.activeLevel}.total`] = increment(total);
+        // Update each level's stats in Firestore
+        Object.entries(statsByLevel).forEach(([lvl, lStats]) => {
+          updateData[`subjectStats.${subjectId}.bloomLevelStats.${lvl}.correct`] = increment(lStats.correct);
+          updateData[`subjectStats.${subjectId}.bloomLevelStats.${lvl}.total`] = increment(lStats.total);
+        });
 
-        // Dùng merge: true để tạo mới nếu chưa có hoặc cập nhật nếu đã có
         await setDoc(statsRef, updateData, { merge: true });
 
-        // Update local state to trigger bloomProgress update
+        // Update local state
         setUserStats(prev => {
           if (!prev) return prev;
-          const newStats = { ...prev };
-          if (!newStats.subjectStats) newStats.subjectStats = {};
-          if (!newStats.subjectStats[subjectId]) {
-              newStats.subjectStats[subjectId] = {
-                  name: subjectName,
-                  totalExams: 0,
-                  totalCorrect: 0,
-                  totalQuestions: 0,
-                  totalScoreSum: 0,
-                  bestScore: 0
-              };
+          const next = JSON.parse(JSON.stringify(prev));
+          if (!next.subjectStats) next.subjectStats = {};
+          if (!next.subjectStats[subjectId]) {
+            next.subjectStats[subjectId] = { name: subjectName, totalExams: 0, totalCorrect: 0, totalQuestions: 0, totalScoreSum: 0, bestScore: 0 };
           }
-          const sub = newStats.subjectStats[subjectId];
+          const sub = next.subjectStats[subjectId];
           sub.totalExams += 1;
           sub.totalCorrect += correct;
           sub.totalQuestions += total;
@@ -307,9 +355,13 @@ export default function QuizPage() {
           sub.bestScore = Math.max(sub.bestScore, score);
           
           if (!sub.bloomLevelStats) sub.bloomLevelStats = {};
-          sub.bloomLevelStats[s.activeLevel] = { correct: newCorrectStat, total: newTotalStat };
-          
-          return newStats;
+          Object.entries(statsByLevel).forEach(([lvl, lStats]) => {
+            const numLvl = Number(lvl);
+            if (!sub.bloomLevelStats[numLvl]) sub.bloomLevelStats[numLvl] = { correct: 0, total: 0 };
+            sub.bloomLevelStats[numLvl].correct += lStats.correct;
+            sub.bloomLevelStats[numLvl].total += lStats.total;
+          });
+          return next;
         });
 
         // 3. Cập nhật Best Score (Chỉ khi điểm mới cao hơn điểm cũ)
@@ -620,6 +672,59 @@ export default function QuizPage() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-[#00cec9]/3 blur-[120px]" />
       </div>
 
+      {/* Setup Mode Modal */}
+      <AnimatePresence>
+        {isSetupMode && !showResumeModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#0c0e17]/90 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ opacity: 0, y: 100, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="max-w-md w-full rounded-[40px] bg-[#10101f]/80 border border-white/10 p-8 text-center shadow-2xl relative overflow-hidden backdrop-blur-2xl"
+            >
+               <div className="absolute -top-24 -left-24 h-48 w-48 bg-[#6c5ce7]/20 blur-[80px] rounded-full" />
+               <div className="absolute -bottom-24 -right-24 h-48 w-48 bg-[#00cec9]/10 blur-[80px] rounded-full" />
+               
+               <div className="h-20 w-20 mx-auto rounded-3xl bg-gradient-to-br from-[#6c5ce7] to-[#a29bfe] text-white flex items-center justify-center mb-6 shadow-xl shadow-[#6c5ce7]/20 relative z-10">
+                 <Brain size={40} />
+               </div>
+
+               <h3 className="text-2xl font-bold mb-2 relative z-10">Sẵn sàng vượt qua thử thách?</h3>
+               <p className="text-slate-400 text-sm mb-8 relative z-10">Hệ thống QIU sẽ chuẩn bị bộ đề tối ưu nhất theo tỉ lệ phân hóa kiến thức dành cho bạn.</p>
+               
+               <div className="grid grid-cols-2 gap-3 mb-8 relative z-10">
+                 {[10, 20, 50, "all"].map((val) => (
+                   <button
+                    key={val}
+                    onClick={() => setSelectedLimit(val as any)}
+                    className={`py-4 rounded-2xl border font-bold transition-all ${
+                      selectedLimit === val 
+                        ? "bg-[#6c5ce7] border-[#6c5ce7] text-white shadow-lg shadow-[#6c5ce7]/30" 
+                        : "bg-white/5 border-white/5 text-slate-400 hover:bg-white/10"
+                    }`}
+                   >
+                     {val === "all" ? "Toàn bộ" : `${val} câu`}
+                   </button>
+                 ))}
+               </div>
+
+               <button 
+                onClick={handleStartQuiz}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] text-white font-black uppercase tracking-wider hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-[#6c5ce7]/20 relative z-10"
+               >
+                 Bắt đầu ngay
+               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header / Nav */}
       <header className="relative z-50 px-6 py-4 border-b border-white/5 bg-[#0c0e17]/80 backdrop-blur-md">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
@@ -633,7 +738,9 @@ export default function QuizPage() {
             <div className="h-8 w-px bg-white/10 hidden sm:block" />
              <div>
                <h1 className="text-sm font-bold tracking-tight text-[#aca3ff] uppercase">{subjectName}</h1>
-               <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Đang ôn tập - Level {state.activeLevel}</p>
+               <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">
+                 {isSetupMode ? "Đang chuẩn bị đề..." : `Đang thi - ${selectedLimit === 'all' ? 'Toàn bộ' : selectedLimit + ' câu'}`}
+               </p>
              </div>
           </div>
 
@@ -642,13 +749,6 @@ export default function QuizPage() {
               <Clock size={16} />
               <span className="font-mono font-bold">{formatTime(state.timeLeft)}</span>
             </div>
-            <button 
-              onClick={() => handleFinishQuiz()}
-              className="group hidden sm:flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] px-6 py-3 text-sm font-black transition-all hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(108,92,231,0.3)]"
-            >
-              <Send size={18} />
-              <span className="tracking-wide uppercase">Nộp bài</span>
-            </button>
           </div>
         </div>
       </header>
@@ -664,64 +764,35 @@ export default function QuizPage() {
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 max-w-4xl mx-auto w-full">
         <div className="w-full space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
           
-          {/* Bloom Level Tabs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {bloomProgress.levels.map((lvl) => {
-              const isActive = state.activeLevel === lvl.level;
-              const levelNames = ["Nhận biết", "Thông hiểu", "Vận dụng", "Nâng cao"];
-              
-              return (
-                <button
-                  key={lvl.level}
-                  onClick={() => handleSwitchLevel(lvl.level)}
-                  className={`group relative flex flex-col p-4 rounded-2xl border transition-all duration-500 overflow-hidden ${
-                    isActive 
-                      ? "bg-[#6c5ce7]/10 border-[#6c5ce7] shadow-xl shadow-[#6c5ce7]/10 scale-[1.02]" 
-                      : lvl.isUnlocked 
-                        ? "bg-white/5 border-white/5 hover:bg-white/10" 
-                        : "bg-black/40 border-white/5 opacity-60 grayscale cursor-not-allowed"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? "text-[#6c5ce7]" : "text-slate-500"}`}>
-                      Level {lvl.level}
-                    </span>
-                    {!lvl.isUnlocked && <Lock size={12} className="text-slate-600" />}
+          {/* Bloom Level Tabs (Hidden in Setup/Mixed Mode) */}
+          {!isSetupMode && state.questions.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 opacity-40 pointer-events-none">
+              {bloomProgress.levels.map((lvl) => {
+                const isActive = state.activeLevel === lvl.level;
+                const levelNames = ["Nhận biết", "Thông hiểu", "Vận dụng", "Nâng cao"];
+                
+                return (
+                  <div
+                    key={lvl.level}
+                    className={`relative flex flex-col p-4 rounded-2xl border transition-all ${
+                      isActive 
+                        ? "bg-[#6c5ce7]/10 border-[#6c5ce7]" 
+                        : "bg-white/5 border-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? "text-[#6c5ce7]" : "text-slate-500"}`}>
+                        LVL {lvl.level}
+                      </span>
+                    </div>
+                    <h4 className={`text-[10px] font-bold ${isActive ? "text-white" : "text-slate-400"}`}>
+                      {levelNames[lvl.level - 1]}
+                    </h4>
                   </div>
-                  
-                  <h4 className={`text-sm font-bold mb-3 ${isActive ? "text-white" : "text-slate-400"}`}>
-                    {levelNames[lvl.level - 1]}
-                  </h4>
-
-                  {/* Progress Bar Mini */}
-                  <div className="mt-auto">
-                      <div className="flex justify-between items-center mb-1">
-                          <span className="text-[9px] font-bold text-slate-500">{lvl.correct}/{lvl.total > 0 ? lvl.total : "?"}</span>
-                          <span className="text-[9px] font-bold text-[#00cec9]">{Math.round(lvl.percentage)}%</span>
-                      </div>
-                      <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                          <div 
-                              className={`h-full transition-all duration-1000 ${
-                                isActive 
-                                  ? "bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] shadow-[0_0_10px_rgba(108,92,231,0.5)]" 
-                                  : lvl.percentage >= 80 
-                                    ? "bg-emerald-500" 
-                                    : lvl.percentage >= 40 
-                                      ? "bg-yellow-500/80" 
-                                      : "bg-red-500/60"
-                              }`}
-                              style={{ width: `${Math.min(lvl.percentage, 100)}%` }}
-                          />
-                      </div>
-                  </div>
-
-                  {isActive && (
-                    <div className="absolute -right-2 -top-2 h-12 w-12 bg-[#6c5ce7]/20 blur-2xl rounded-full" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Question Info */}
           <div className="space-y-4">
@@ -796,89 +867,105 @@ export default function QuizPage() {
             </div>
           )}
 
-          {/* AI Explanation Section */}
-          {(state.isFinished || state.reviewMode) && (
-            <div className="space-y-4">
-                {!aiExplanations[`${subjectId}_${state.currentIdx}`] ? (
-                  <button 
-                   onClick={() => handleAIExplain(state.currentIdx)}
-                   disabled={isExplaining}
-                   className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] text-white text-sm font-bold shadow-lg shadow-[#6c5ce7]/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 disabled:hover:scale-100"
+          {/* Action Area (AI Explain, Next, Submit) */}
+          <AnimatePresence>
+            {state.userAnswers[state.currentIdx] !== null && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="mt-10 space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  {/* AI Explain Button */}
+                  {!aiExplanations[`${subjectId}_${state.currentIdx}`] ? (
+                    <button 
+                      onClick={() => handleAIExplain(state.currentIdx)}
+                      disabled={isExplaining}
+                      className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-slate-300 text-sm font-bold hover:bg-white/10 transition-all disabled:opacity-50 w-full sm:w-auto"
+                    >
+                      {isExplaining ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} className="text-[#a29bfe]" />}
+                      <span>{isExplaining ? "Đang phân tích..." : "Giải thích bằng AI"}</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#6c5ce7]/10 text-[#a29bfe] text-xs font-bold uppercase tracking-widest border border-[#6c5ce7]/20">
+                      <Sparkles size={14} />
+                      <span>Đã có giải thích từ QIU</span>
+                    </div>
+                  )}
+
+                  {/* Next / Submit Button */}
+                  {state.currentIdx === state.questions.length - 1 ? (
+                    <button 
+                      onClick={() => handleFinishQuiz()}
+                      className="flex items-center justify-center gap-2 px-10 py-4 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] text-white font-black uppercase tracking-wider shadow-2xl shadow-[#6c5ce7]/40 hover:scale-[1.05] active:scale-95 transition-all w-full sm:w-auto"
+                    >
+                      <Send size={18} />
+                      <span>Nộp bài ngay</span>
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => setState(p => ({ ...p, currentIdx: p.currentIdx + 1 }))}
+                      className="flex items-center justify-center gap-2 px-10 py-4 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#8271ff] text-white font-black uppercase tracking-wider shadow-2xl shadow-[#6c5ce7]/40 hover:scale-[1.05] active:scale-95 transition-all w-full sm:w-auto"
+                    >
+                      <span>Câu tiếp theo</span>
+                      <ChevronRight size={20} />
+                    </button>
+                  )}
+                </div>
+
+                {/* AI Text Display */}
+                {aiExplanations[`${subjectId}_${state.currentIdx}`] && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="p-6 rounded-3xl bg-[#6c5ce7]/5 border border-[#6c5ce7]/20 space-y-4 overflow-hidden relative"
                   >
-                    {isExplaining ? (
-                      <Loader2 size={18} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={18} />
-                    )}
-                    <span>{isExplaining ? "✨ Đang phân tích..." : "✨ Giải thích bằng AI"}</span>
-                  </button>
-                ) : (
-                 <div className="p-6 rounded-3xl bg-[#6c5ce7]/5 border border-[#6c5ce7]/20 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10">
-                       <Brain size={80} className="text-[#6c5ce7]" />
+                    <div className="absolute top-0 right-0 p-4 opacity-5">
+                       <Brain size={120} className="text-[#6c5ce7]" />
                     </div>
                     <div className="flex items-center gap-2 text-[#a29bfe] text-xs font-bold uppercase tracking-widest relative z-10">
                       <Sparkles size={14} />
-                      <span>Trợ lý ảo QIU</span>
+                      <span>Trợ lý QIU AI</span>
                     </div>
                     <div className="text-slate-300 text-sm leading-relaxed relative z-10 whitespace-pre-wrap">
                        {aiExplanations[`${subjectId}_${state.currentIdx}`]}
                     </div>
-                    <div className="pt-2 flex items-center gap-2 text-[10px] text-slate-500 italic relative z-10">
-                       <Info size={10} />
-                       <span>Nội dung được tạo bởi AI Gemini - Luôn kiểm tra lại kiến thức chính thống.</span>
-                    </div>
-                 </div>
-               )}
-            </div>
-          )}
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </main>
 
-      {/* Footer Controls */}
+      {/* Footer Controls (Cleaned Up) */}
       <footer className="relative z-50 px-6 py-6 border-t border-white/5 bg-[#0c0e17]/80 backdrop-blur-md">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
           <button 
             disabled={state.currentIdx === 0}
             onClick={() => setState(p => ({ ...p, currentIdx: p.currentIdx - 1 }))}
-            className="flex items-center gap-2 px-6 py-3 rounded-2xl text-slate-400 font-bold hover:text-white disabled:opacity-0 transition-all"
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl text-slate-500 font-bold hover:text-white disabled:opacity-0 transition-all"
           >
             <ChevronLeft size={20} />
             <span>Câu trước</span>
           </button>
 
-          <div className="hidden md:flex gap-1">
+          <div className="hidden md:flex gap-1.5 flex-1 justify-center max-w-xs mx-auto">
              {state.questions.map((_, idx) => (
                 <div 
                   key={idx} 
-                  className={`h-1 rounded-full transition-all ${
-                    idx === state.currentIdx ? "w-8 bg-[#6c5ce7]" : "w-2 bg-white/10"
+                  className={`h-1 rounded-full transition-all duration-300 ${
+                    idx === state.currentIdx ? "flex-1 bg-[#6c5ce7] shadow-[0_0_10px_rgba(108,92,231,0.5)]" : "w-1.5 bg-white/10"
                   } ${state.userAnswers[idx] !== null ? "bg-[#00cec9]/40" : ""}`}
                 />
              ))}
           </div>
 
-          {state.currentIdx === state.questions.length - 1 ? (
-             <button 
-                onClick={() => state.isFinished ? setState(p => ({ ...p, reviewMode: !p.reviewMode })) : handleFinishQuiz()}
-                className={`flex items-center gap-2 px-8 py-3 rounded-2xl font-bold text-white transition-all shadow-lg active:scale-95 ${
-                  state.isFinished 
-                    ? "bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10" 
-                    : "bg-gradient-to-r from-[#6c5ce7] to-[#00cec9] shadow-[#6c5ce7]/20"
-                }`}
-             >
-               {state.isFinished ? <Eye size={18} /> : <Send size={18} />}
-               <span>{state.isFinished ? "Xem lời giải" : "Nộp bài"}</span>
-             </button>
-          ) : (
-            <button 
-              onClick={() => setState(p => ({ ...p, currentIdx: p.currentIdx + 1 }))}
-              className="group flex items-center gap-2 px-8 py-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 text-white font-bold transition-all active:scale-95"
-            >
-              <span>Câu tiếp theo</span>
-              <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-          )}
+          <div className="w-24 text-right">
+             <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Hoàn thành</span>
+             <p className="text-xs font-bold text-white leading-none">{Math.round(progress)}%</p>
+          </div>
         </div>
       </footer>
 
