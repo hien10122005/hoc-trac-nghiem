@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import VideoPlayerModal from "./VideoPlayerModal";
 import MaterialContentModal from "./MaterialContentModal";
+import KnowledgeGraphBase from "./KnowledgeGraphBase";
+import { motion, AnimatePresence } from "framer-motion";
+import { LayoutGrid, GitBranch } from "lucide-react";
 
 interface Material {
   id: string;
@@ -44,6 +47,7 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<Material | null>(null);
   const [selectedReading, setSelectedReading] = useState<Material | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'roadmap'>('list');
   const [activeTab, setActiveTab] = useState<MaterialCategory>('all');
 
   useEffect(() => {
@@ -107,85 +111,141 @@ export default function MaterialGrid({ subjectId, subjectName, onBack }: Materia
           <h2 className="text-2xl font-bold text-white">Tài liệu: {subjectName}</h2>
         </div>
 
-        {/* Category Tabs */}
-        <div className="flex p-1 bg-white/5 border border-white/5 rounded-2xl shrink-0">
-          {[
-            { id: 'all', label: 'Tất cả', icon: PlayCircle },
-            { id: 'video', label: 'Videos', icon: Play },
-            { id: 'reading', label: 'Bài đọc', icon: BookOpen },
-            { id: 'document', label: 'Tải về', icon: FileIcon },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as MaterialCategory)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === tab.id
-                  ? "bg-white/10 text-white shadow-lg"
-                  : "text-slate-500 hover:text-slate-300"
-                }`}
-            >
-              <tab.icon size={14} />
-              <span className="hidden sm:inline">{tab.label}</span>
-            </button>
-          ))}
+        {/* Category Tabs & View Switcher */}
+        <div className="flex flex-col sm:flex-row gap-4 items-center">
+            {/* Primary Mode Switcher */}
+            <div className="flex p-1 bg-[#1a1a2e]/50 backdrop-blur-md border border-white/10 rounded-2xl">
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all ${viewMode === 'list' ? 'bg-[#6c5ce7] text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                <LayoutGrid size={16} />
+                <span>BÀI HỌC</span>
+              </button>
+              <button 
+                onClick={() => setViewMode('roadmap')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all ${viewMode === 'roadmap' ? 'bg-[#6c5ce7] text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                <GitBranch size={16} />
+                <span>LỘ TRÌNH</span>
+              </button>
+            </div>
+
+            {viewMode === 'list' && (
+              <div className="flex p-1 bg-white/5 border border-white/5 rounded-2xl shrink-0">
+                {[
+                  { id: 'all', label: 'Tất cả', icon: PlayCircle },
+                  { id: 'video', label: 'Videos', icon: Play },
+                  { id: 'reading', label: 'Bài đọc', icon: BookOpen },
+                  { id: 'document', label: 'Tải về', icon: FileIcon },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as MaterialCategory)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === tab.id
+                        ? "bg-white/10 text-white shadow-lg"
+                        : "text-slate-500 hover:text-slate-300"
+                      }`}
+                  >
+                    <tab.icon size={14} />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
         </div>
       </div>
 
-      {filteredMaterials.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4">
-          {filteredMaterials.map((m) => (
-            <div
-              key={m.id}
-              className="group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-3xl bg-gradient-to-br from-[#10101f] to-[#16162d] border border-white/5 p-6 hover:border-[#6c5ce7]/30 transition-all duration-300"
-            >
-              <div className="flex items-center gap-5">
-                <div className="h-14 w-14 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-all shadow-inner">
-                  {getMaterialIcon(m.type)}
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-[#aca3ff] transition-colors">{m.title}</h3>
-                  <p className="text-sm text-slate-500 mt-1 line-clamp-1">{m.description || "Tài liệu học tập hỗ trợ môn học."}</p>
-                </div>
-              </div>
+      <AnimatePresence mode="wait">
+        {viewMode === 'roadmap' ? (
+          <motion.div 
+            key="roadmap"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="flex-1 min-h-[600px]"
+          >
+             {subjectId && (
+               <KnowledgeGraphBase 
+                 subjectId={subjectId} 
+                 isStudentView={true}
+                 onSelectMaterial={(id) => {
+                    const material = materials.find(m => m.id === id);
+                    if (material) {
+                        if (material.type === 'youtube') setSelectedVideo(material);
+                        else if (material.type === 'reading') setSelectedReading(material);
+                        else window.open(material.url, '_blank');
+                    }
+                 }}
+               />
+             )}
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="list"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            {filteredMaterials.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4">
+                {filteredMaterials.map((m) => (
+                  <div
+                    key={m.id}
+                    className="group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-3xl bg-gradient-to-br from-[#10101f] to-[#16162d] border border-white/5 p-6 hover:border-[#6c5ce7]/30 transition-all duration-300"
+                  >
+                    <div className="flex items-center gap-5">
+                      <div className="h-14 w-14 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-all shadow-inner">
+                        {getMaterialIcon(m.type)}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-white group-hover:text-[#aca3ff] transition-colors">{m.title}</h3>
+                        <p className="text-sm text-slate-500 mt-1 line-clamp-1">{m.description || "Tài liệu học tập hỗ trợ môn học."}</p>
+                      </div>
+                    </div>
 
-              <div className="w-full sm:w-auto">
-                {m.type === 'youtube' ? (
-                  <button
-                    onClick={() => setSelectedVideo(m)}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl transition-all text-sm font-bold w-full justify-center border ${getActionColor(m.type)}`}
-                  >
-                    <Play size={18} fill="currentColor" />
-                    <span>Xem Video</span>
-                  </button>
-                ) : m.type === 'reading' ? (
-                  <button
-                    onClick={() => setSelectedReading(m)}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl transition-all text-sm font-bold w-full justify-center border ${getActionColor(m.type)}`}
-                  >
-                    <BookOpen size={18} />
-                    <span>Đọc bài học</span>
-                  </button>
-                ) : (
-                  <a
-                    href={m.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/5 text-slate-300 hover:bg-[#00cec9]/20 hover:text-white hover:border-[#00cec9]/30 transition-all text-sm font-bold w-full justify-center"
-                  >
-                    <DownloadCloud size={18} />
-                    <span>Tải tài liệu</span>
-                  </a>
-                )}
+                    <div className="w-full sm:w-auto">
+                      {m.type === 'youtube' ? (
+                        <button
+                          onClick={() => setSelectedVideo(m)}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-2xl transition-all text-sm font-bold w-full justify-center border ${getActionColor(m.type)}`}
+                        >
+                          <Play size={18} fill="currentColor" />
+                          <span>Xem Video</span>
+                        </button>
+                      ) : m.type === 'reading' ? (
+                        <button
+                          onClick={() => setSelectedReading(m)}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-2xl transition-all text-sm font-bold w-full justify-center border ${getActionColor(m.type)}`}
+                        >
+                          <BookOpen size={18} />
+                          <span>Đọc bài học</span>
+                        </button>
+                      ) : (
+                        <a
+                          href={m.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/5 text-slate-300 hover:bg-[#00cec9]/20 hover:text-white hover:border-[#00cec9]/30 transition-all text-sm font-bold w-full justify-center"
+                        >
+                          <DownloadCloud size={18} />
+                          <span>Tải tài liệu</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center h-64 rounded-[2rem] border-2 border-dashed border-white/5 bg-[#10101f]/50">
-          <AlertCircle size={32} className="text-slate-700 mb-4" />
-          <h3 className="text-lg font-medium text-white">Trống trải quá...</h3>
-          <p className="text-slate-500 mt-1 text-sm text-center">Chưa có {activeTab === 'all' ? 'tài liệu' : activeTab} nào trong danh mục này.</p>
-        </div>
-      )}
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 rounded-[2rem] border-2 border-dashed border-white/5 bg-[#10101f]/50">
+                <AlertCircle size={32} className="text-slate-700 mb-4" />
+                <h3 className="text-lg font-medium text-white">Trống trải quá...</h3>
+                <p className="text-slate-500 mt-1 text-sm text-center">Chưa có {activeTab === 'all' ? 'tài liệu' : activeTab} nào trong danh mục này.</p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Modals */}
       <VideoPlayerModal

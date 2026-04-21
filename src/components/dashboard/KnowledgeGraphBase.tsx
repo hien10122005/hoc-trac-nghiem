@@ -17,10 +17,16 @@ import 'reactflow/dist/style.css';
 import { useRouter } from 'next/navigation';
 import { getKnowledgeMap } from '@/lib/knowledge';
 import { KnowledgeNode } from '@/types/knowledgeGraph';
-import { Loader2, Info } from 'lucide-react';
+import { Loader2, Info, X, MapPin, Zap, ChevronRight, BookOpen } from 'lucide-react';
+import { motion, AnimatePresence } from "framer-motion";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, query, where, getDocs, getDoc, doc } from "firebase/firestore";
 
 interface Props {
   subjectId: string;
+  isStudentView?: boolean;
+  onSelectMaterial?: (id: string) => void;
 }
 
 /**
@@ -28,27 +34,71 @@ interface Props {
  * Phong cách: Glassmorphism & Dark Editorial.
  * Hỗ trợ tương tác: Click để học, Zoom/Pan.
  */
-export default function KnowledgeGraphBase({ subjectId }: Props) {
+export default function KnowledgeGraphBase({ subjectId, isStudentView = false, onSelectMaterial }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedNodeDetails, setSelectedNodeDetails] = useState<any | null>(null);
+  const [user, setUser] = useState<any>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!subjectId) return;
       setLoading(true);
       try {
+        // 0. Fetch User Progress (Parallel)
+        let completedIds = new Set<string>();
+        let inProgressIds = new Set<string>();
+
+        if (isStudentView && user) {
+          // Fetch Quiz Results for this subject
+          const qResults = query(
+            collection(db, "quiz_results"), 
+            where("userId", "==", user.uid),
+            where("subjectId", "==", subjectId)
+          );
+          const resSnap = await getDocs(qResults);
+          resSnap.docs.forEach(d => {
+            const data = d.data();
+            if (data.score >= 80) completedIds.add(data.topicId || data.level?.toString());
+          });
+
+          // Fetch Notes as proxy for "In Progress"
+          const notesSnap = await getDocs(collection(db, "user_stats", user.uid, "notes"));
+          notesSnap.docs.forEach(d => inProgressIds.add(d.id));
+        }
+
         const data = await getKnowledgeMap(subjectId);
         if (data && data.nodes && data.nodes.length > 0) {
           // 1. Chuyển đổi Nodes
-          const rfNodes: Node[] = data.nodes.map((n: KnowledgeNode) => ({
-            id: n.id,
-            position: n.position || { x: 0, y: 0 },
-            data: { label: n.label, status: n.status, type: n.type },
-            style: getNodeStyle(n.status),
-            className: n.status === 'completed' ? 'node-glow-completed' : '',
-          }));
+          const rfNodes: Node[] = data.nodes.map((n: KnowledgeNode) => {
+            let status = n.status || 'locked';
+            
+            if (isStudentView) {
+              if (completedIds.has(n.id)) status = 'completed';
+              else if (inProgressIds.has(n.id)) status = 'unlocked'; // "Vàng"
+              else status = 'locked'; // "Xám"
+            }
+
+            return {
+              id: n.id,
+              position: n.position || { x: 0, y: 0 },
+              data: { 
+                label: n.label, 
+                description: n.description,
+                status: status, 
+                type: n.type 
+              },
+              style: getNodeStyle(status),
+              className: status === 'completed' ? 'node-glow-completed' : '',
+            };
+          });
 
           const rfEdges: Edge[] = data.edges.map((e) => {
             const sourceNode = data.nodes.find(node => node.id === e.source);
@@ -138,12 +188,17 @@ export default function KnowledgeGraphBase({ subjectId }: Props) {
   };
 
   const onNodeClick = useCallback((_: any, node: Node) => {
+    if (isStudentView) {
+      setSelectedNodeDetails(node.data ? { ...node.data, id: node.id } : null);
+      return;
+    }
+
     const status = node.data?.status;
     if (status === 'locked') return;
     
-    // Điều hướng đến bài học (ID của node tương ứng với ID của Material)
+    // Điều hướng đến bài học cho Admin hoặc chế độ cũ
     router.push(`/dashboard/library?materialId=${node.id}`);
-  }, [router]);
+  }, [isStudentView, router]);
 
   if (loading) {
     return (
@@ -175,6 +230,9 @@ export default function KnowledgeGraphBase({ subjectId }: Props) {
         style={{ backgroundColor: '#10101f' }}
         minZoom={0.2}
         maxZoom={2}
+        nodesDraggable={!isStudentView}
+        nodesConnectable={!isStudentView}
+        elementsSelectable={true}
       >
         <Background color="#1a1a2e" gap={28} size={1} />
         <Controls 
@@ -203,9 +261,80 @@ export default function KnowledgeGraphBase({ subjectId }: Props) {
            </div>
            <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-slate-700 opacity-50" />
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Chưa mở khóa</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{isStudentView ? 'Chưa tương tác' : 'Chưa mở khóa'}</span>
            </div>
         </div>
+
+        {/* Student Detail Sidebar */}
+        <AnimatePresence>
+          {selectedNodeDetails && (
+            <motion.div
+              initial={{ x: '100%', opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '100%', opacity: 0 }}
+              className="absolute top-0 right-0 h-full w-full sm:w-80 md:w-96 bg-[#0a0a14]/95 backdrop-blur-2xl border-l border-white/10 z-50 p-8 shadow-2xl flex flex-col"
+            >
+              <button 
+                onClick={() => setSelectedNodeDetails(null)}
+                className="absolute top-6 right-6 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="mt-10 space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2">
+                <div className="flex items-center gap-3">
+                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${
+                    selectedNodeDetails.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
+                    selectedNodeDetails.status === 'unlocked' ? 'bg-[#6c5ce7]/10 text-[#6c5ce7]' : 'bg-slate-500/10 text-slate-500'
+                  }`}>
+                    {selectedNodeDetails.status === 'completed' ? <Zap size={24} /> : <BookOpen size={24} />}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-white leading-tight">{selectedNodeDetails.label}</h3>
+                    <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${
+                      selectedNodeDetails.status === 'completed' ? 'text-emerald-500' :
+                      selectedNodeDetails.status === 'unlocked' ? 'text-[#aca3ff]' : 'text-slate-500'
+                    }`}>
+                      {selectedNodeDetails.status === 'completed' ? 'Đã thành thạo' : 
+                       selectedNodeDetails.status === 'unlocked' ? 'Đang học tập' : 'Chưa bắt đầu'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                   <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                     <Info size={12} />
+                     Mô tả bài học
+                   </h4>
+                   <p className="text-sm text-slate-400 leading-relaxed">
+                     {selectedNodeDetails.description || "Nội dung bài học này đang được AI cập nhật thông tin chi tiết..."}
+                   </p>
+                </div>
+
+                {selectedNodeDetails.status === 'completed' && (
+                  <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex items-center gap-3">
+                    <Zap className="text-emerald-500" size={18} />
+                    <p className="text-xs text-emerald-500/80 font-medium">Bạn đã vượt qua bài kiểm tra kiến thức của chương này với kết quả xuất sắc!</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-6 border-t border-white/5 space-y-3">
+                <button
+                  onClick={() => {
+                    if (onSelectMaterial) onSelectMaterial(selectedNodeDetails.id);
+                    setSelectedNodeDetails(null);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 bg-[#6c5ce7] hover:bg-[#5b4bc4] text-white py-4 rounded-2xl font-bold text-sm transition-all shadow-xl shadow-[#6c5ce7]/20"
+                >
+                  <span>Bắt đầu học ngay</span>
+                  <ChevronRight size={18} />
+                </button>
+                <p className="text-[10px] text-center text-slate-500">Nhấn để mở tài liệu hoặc video bài giảng tương ứng.</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </ReactFlow>
 
       <style jsx global>{`

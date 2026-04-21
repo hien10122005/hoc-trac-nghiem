@@ -4,6 +4,7 @@ export type NodeType = 'subject' | 'topic' | 'material';
 export interface KnowledgeNode {
   id: string;
   label: string;
+  description?: string;
   type: NodeType;
   position: { x: number; y: number };
   status: NodeStatus;
