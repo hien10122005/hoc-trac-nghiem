@@ -222,16 +222,12 @@ export default function KnowledgeGraphAdmin() {
       // Clean and sanitize data for Firestore
       const sanitizedNodes = nodes.map(n => ({
         id: String(n.id),
-        position: {
-          x: Number(n.position?.x) || 0,
-          y: Number(n.position?.y) || 0
-        },
-        data: {
-          label: String(n.data?.label || ""),
-          description: String(n.data?.description || ""),
-          status: String(n.data?.status || 'unlocked'),
-          type: String(n.data?.type || "")
-        }
+        x: Number(n.position?.x) || 0,
+        y: Number(n.position?.y) || 0,
+        label: String((n.data as any)?.label || ""),
+        description: String((n.data as any)?.description || ""),
+        status: String((n.data as any)?.status || 'unlocked'),
+        type: String((n.data as any)?.type || "")
       }));
 
       const sanitizedEdges = edges.map(e => ({
@@ -241,17 +237,16 @@ export default function KnowledgeGraphAdmin() {
         label: String(e.label || "")
       }));
 
-      const mapData = JSON.parse(JSON.stringify({
+      const rawData = {
         subjectId: selectedSubject,
         nodes: sanitizedNodes,
         edges: sanitizedEdges,
-        updatedAt: new Date().toISOString() // Use ISO string if serverTimestamp fails or causes issues
-      }));
-      
-      // Use serverTimestamp for Firestore consistency
-      mapData.updatedAt = serverTimestamp();
+      };
 
-      await setDoc(doc(db, "knowledge_maps", selectedSubject), mapData);
+      const cleanData = JSON.parse(JSON.stringify(rawData));
+      cleanData.updatedAt = serverTimestamp();
+
+      await setDoc(doc(db, "knowledge_maps", selectedSubject), cleanData);
       toast.success("Đã cập nhật hệ thống sơ đồ tri thức!");
     } catch (err: any) {
       console.error("Firestore Save Error:", err);
