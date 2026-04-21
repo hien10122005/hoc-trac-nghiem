@@ -94,6 +94,7 @@ export default function QuizPage() {
   const isExplainingRef = useRef(false);
   const [isSetupMode, setIsSetupMode] = useState(true);
   const [selectedLimit, setSelectedLimit] = useState<number | "all">(10);
+  const [savedQuestionIds, setSavedQuestionIds] = useState<Set<string>>(new Set());
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 

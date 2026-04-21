@@ -267,7 +267,6 @@ export default function KnowledgeGraphAdmin() {
               <span>Lưu sơ đồ</span>
            </button>
         </div>
-      </div>
 
       {/* Generation Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
