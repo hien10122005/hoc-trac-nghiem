@@ -657,8 +657,8 @@ export default function QuizPage() {
     );
   }
 
-  const currentQ = state.questions[state.currentIdx];
-  const progress = ((state.currentIdx + 1) / state.questions.length) * 100;
+  const currentQ = state.questions && state.questions.length > 0 ? state.questions[state.currentIdx] : null;
+  const progress = state.questions.length > 0 ? ((state.currentIdx + (state.isFinished ? 1 : 0)) / state.questions.length) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-[#0c0e17] text-[#f0f0fd] font-manrope selection:bg-[#6c5ce7]/30 flex flex-col">
@@ -788,66 +788,69 @@ export default function QuizPage() {
         />
       </div>
 
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 max-w-4xl mx-auto w-full">
-        <div className="w-full space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          
-          {/* Bloom Level Tabs (Hidden in Setup/Mixed Mode) */}
-          {!isSetupMode && state.questions.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 opacity-40 pointer-events-none">
-              {bloomProgress.levels.map((lvl) => {
-                const isActive = state.activeLevel === lvl.level;
-                const levelNames = ["Nhận biết", "Thông hiểu", "Vận dụng", "Nâng cao"];
-                
-                return (
-                  <div
-                    key={lvl.level}
-                    className={`relative flex flex-col p-4 rounded-2xl border transition-all ${
-                      isActive 
-                        ? "bg-[#6c5ce7]/10 border-[#6c5ce7]" 
-                        : "bg-white/5 border-white/5"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? "text-[#6c5ce7]" : "text-slate-500"}`}>
-                        LVL {lvl.level}
-                      </span>
+      {!isSetupMode && currentQ ? (
+        <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 max-w-4xl mx-auto w-full">
+          <div className="w-full space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            
+            {/* Bloom Level Tabs (Hidden in Setup/Mixed Mode) */}
+            {state.questions.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 opacity-40 pointer-events-none">
+                {bloomProgress.levels.map((lvl) => {
+                  const isActive = state.activeLevel === lvl.level;
+                  const levelNames = ["Nhận biết", "Thông hiểu", "Vận dụng", "Nâng cao"];
+                  
+                  return (
+                    <div
+                      key={lvl.level}
+                      className={`relative flex flex-col p-4 rounded-2xl border transition-all ${
+                        isActive 
+                          ? "bg-[#6c5ce7]/10 border-[#6c5ce7]" 
+                          : "bg-white/5 border-white/5"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? "text-[#6c5ce7]" : "text-slate-500"}`}>
+                          LVL {lvl.level}
+                        </span>
+                      </div>
+                      <h4 className={`text-[10px] font-bold ${isActive ? "text-white" : "text-slate-400"}`}>
+                        {levelNames[lvl.level - 1]}
+                      </h4>
                     </div>
-                    <h4 className={`text-[10px] font-bold ${isActive ? "text-white" : "text-slate-400"}`}>
-                      {levelNames[lvl.level - 1]}
-                    </h4>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
 
-          {/* Question Info */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-[#6c5ce7] uppercase tracking-widest bg-[#6c5ce7]/10 px-2 py-0.5 rounded">Câu hỏi {state.currentIdx + 1} / {state.questions.length}</span>
-              
-              <button 
-                onClick={() => toggleBookmark(currentQ)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
-                  savedQuestionIds.has(currentQ.id) 
-                    ? "bg-[#6c5ce7]/20 border-[#6c5ce7]/40 text-[#aca3ff]" 
-                    : "bg-white/5 border-white/5 text-slate-500 hover:text-white"
-                }`}
-              >
-                <Bookmark size={16} fill={savedQuestionIds.has(currentQ.id) ? "currentColor" : "none"} />
-                <span className="text-[10px] font-bold uppercase tracking-widest">{savedQuestionIds.has(currentQ.id) ? "Đã lưu" : "Lưu câu hỏi"}</span>
-              </button>
+            {/* Question Info */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-[#6c5ce7] uppercase tracking-widest bg-[#6c5ce7]/10 px-2 py-0.5 rounded">
+                  Câu hỏi {state.currentIdx + 1} / {state.questions.length}
+                </span>
+                
+                <button 
+                  onClick={() => currentQ && toggleBookmark(currentQ)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
+                    currentQ && savedQuestionIds.has(currentQ.id) 
+                      ? "bg-[#6c5ce7]/20 border-[#6c5ce7]/40 text-[#aca3ff]" 
+                      : "bg-white/5 border-white/5 text-slate-500 hover:text-white"
+                  }`}
+                >
+                  <Bookmark size={16} fill={currentQ && savedQuestionIds.has(currentQ.id) ? "currentColor" : "none"} />
+                  <span className="text-[10px] font-bold uppercase tracking-widest">{currentQ && savedQuestionIds.has(currentQ.id) ? "Đã lưu" : "Lưu câu hỏi"}</span>
+                </button>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-bold leading-snug tracking-tight">
+                {currentQ?.content}
+              </h2>
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold leading-snug tracking-tight">
-              {currentQ.content}
-            </h2>
-          </div>
 
-          {/* Options Grid */}
-          <div className="grid grid-cols-1 gap-4">
-            {currentQ.options.map((opt, i) => {
-              const isSelected = state.userAnswers[state.currentIdx] === i;
-              const isCorrect = i === currentQ.correctAnswer;
+            {/* Options Grid */}
+            <div className="grid grid-cols-1 gap-4">
+              {currentQ?.options?.map((opt, i) => {
+                const isSelected = state.userAnswers[state.currentIdx] === i;
+                const isCorrect = i === currentQ.correctAnswer;
               const showReview = state.isFinished || state.reviewMode;
 
               let variantStyles = "border-white/5 bg-white/[0.02] text-[#f0f0fd] hover:border-[#6c5ce7]/30 hover:bg-white/[0.04]";
@@ -884,7 +887,7 @@ export default function QuizPage() {
           </div>
 
           {/* Explanation in Review Mode */}
-          {state.reviewMode && currentQ.explanation && (
+          {state.reviewMode && currentQ?.explanation && (
             <div className="p-6 rounded-3xl bg-orange-500/5 border border-orange-500/10 space-y-2 animate-in slide-in-from-top-2 duration-300">
               <div className="flex items-center gap-2 text-orange-400 text-xs font-bold uppercase tracking-widest">
                 <Info size={14} />
@@ -965,36 +968,48 @@ export default function QuizPage() {
           </AnimatePresence>
         </div>
       </main>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+           {!isSetupMode && !_loading && state.allQuestions.length > 0 && (
+              <div className="animate-pulse flex flex-col items-center">
+                <Loader2 className="h-8 w-8 animate-spin text-[#6c5ce7] mb-4" />
+                <p className="text-slate-500 text-sm">Hệ thống đang chuẩn bị câu hỏi...</p>
+              </div>
+           )}
+        </div>
+      )}
 
       {/* Footer Controls (Cleaned Up) */}
-      <footer className="relative z-50 px-6 py-6 border-t border-white/5 bg-[#0c0e17]/80 backdrop-blur-md">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-          <button 
-            disabled={state.currentIdx === 0}
-            onClick={() => setState(p => ({ ...p, currentIdx: p.currentIdx - 1 }))}
-            className="flex items-center gap-2 px-6 py-3 rounded-2xl text-slate-500 font-bold hover:text-white disabled:opacity-0 transition-all"
-          >
-            <ChevronLeft size={20} />
-            <span>Câu trước</span>
-          </button>
+      {!isSetupMode && state.questions.length > 0 && (
+        <footer className="relative z-50 px-6 py-6 border-t border-white/5 bg-[#0c0e17]/80 backdrop-blur-md">
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+            <button 
+              disabled={state.currentIdx === 0}
+              onClick={() => setState(p => ({ ...p, currentIdx: p.currentIdx - 1 }))}
+              className="flex items-center gap-2 px-6 py-3 rounded-2xl text-slate-500 font-bold hover:text-white disabled:opacity-0 transition-all"
+            >
+              <ChevronLeft size={20} />
+              <span>Câu trước</span>
+            </button>
 
-          <div className="hidden md:flex gap-1.5 flex-1 justify-center max-w-xs mx-auto">
-             {state.questions.map((_, idx) => (
-                <div 
-                  key={idx} 
-                  className={`h-1 rounded-full transition-all duration-300 ${
-                    idx === state.currentIdx ? "flex-1 bg-[#6c5ce7] shadow-[0_0_10px_rgba(108,92,231,0.5)]" : "w-1.5 bg-white/10"
-                  } ${state.userAnswers[idx] !== null ? "bg-[#00cec9]/40" : ""}`}
-                />
-             ))}
-          </div>
+            <div className="hidden md:flex gap-1.5 flex-1 justify-center max-w-xs mx-auto">
+               {state.questions.map((_, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`h-1 rounded-full transition-all duration-300 ${
+                      idx === state.currentIdx ? "flex-1 bg-[#6c5ce7] shadow-[0_0_10px_rgba(108,92,231,0.5)]" : "w-1.5 bg-white/10"
+                    } ${state.userAnswers[idx] !== null ? "bg-[#00cec9]/40" : ""}`}
+                  />
+               ))}
+            </div>
 
-          <div className="w-24 text-right">
-             <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Hoàn thành</span>
-             <p className="text-xs font-bold text-white leading-none">{Math.round(progress)}%</p>
+            <div className="w-24 text-right">
+               <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Hoàn thành</span>
+               <p className="text-xs font-bold text-white leading-none">{Math.round(progress)}%</p>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
       {/* Result Overlay */}
       {state.isFinished && !state.reviewMode && (
