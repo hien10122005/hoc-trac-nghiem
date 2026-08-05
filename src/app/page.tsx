@@ -26,7 +26,7 @@ export default function RootPage() {
           router.push("/login");
         }
       } else {
-        router.push("/login");
+        router.push("/about");
       }
     });
 
