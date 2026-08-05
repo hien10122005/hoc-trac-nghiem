@@ -142,7 +142,7 @@ export default function AdminLayout({
               <p className="text-[9px] text-slate-500 font-bold text-center leading-relaxed">
                 © 2026 <span className="text-white">QIU</span><br />
                 Phát triển và điều hành bởi <br />
-                <span className="text-[#00cec9]">PhanVanHien</span>
+                <span className="text-[#00cec9]">Phan Văn Hiển</span>
               </p>
             </div>
           )}
@@ -185,7 +185,7 @@ export default function AdminLayout({
 
             <div className="flex items-center gap-3 pl-2">
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-semibold text-white">PhanVanHien</p>
+                <p className="text-sm font-semibold text-white">Phan Văn Hiển</p>
                 <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Quản trị viên tối cao</p>
               </div>
               <div className="h-10 w-10 rounded-xl bg-[#1a1a2e] border border-white/10 p-0.5 shadow-xl">

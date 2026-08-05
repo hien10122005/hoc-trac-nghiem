@@ -15,7 +15,7 @@ import {
 export const metadata: Metadata = {
   title: "Giới thiệu QIU - Nền tảng Học tập Thông minh",
   description:
-    "Tìm hiểu QIU Smart Learning, nền tảng ôn luyện trắc nghiệm, flashcard, thư viện tài liệu và AI Tutor do PhanVanHien phát triển.",
+    "Tìm hiểu QIU Smart Learning, nền tảng ôn luyện trắc nghiệm, flashcard, thư viện tài liệu và AI Tutor do Phan Văn Hiển phát triển.",
 };
 
 const highlights = [
@@ -165,7 +165,7 @@ export default function AboutPage() {
             <h2 className="text-3xl font-black tracking-tight text-white">Người phát triển</h2>
             <p className="mt-4 max-w-xl text-base leading-8 text-slate-300">
               QIU Smart Learning được phát triển và điều hành bởi{" "}
-              <span className="font-black text-[#00cec9]">PhanVanHien</span>, với mục tiêu tạo ra
+              <span className="font-black text-[#00cec9]">Phan Văn Hiển</span>, với mục tiêu tạo ra
               một hệ thống học tập hiện đại, dễ dùng và có khả năng mở rộng cho nhiều môn học.
             </p>
           </div>

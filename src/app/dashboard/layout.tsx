@@ -202,7 +202,7 @@ export default function DashboardLayout({
               <p className="text-[9px] text-slate-500 font-bold text-center leading-relaxed">
                 © 2026 <span className="text-white">QIU</span><br />
                 Phát triển và điều hành bởi <br />
-                <span className="text-[#00cec9]">PhanVanHien</span>
+                <span className="text-[#00cec9]">Phan Văn Hiển</span>
               </p>
             </div>
           )}
